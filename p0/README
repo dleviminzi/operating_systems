@@ -8,6 +8,7 @@ stdlib          /* needed for exit; c std library       */
 getopt          /* used to parse options/arguments      */
 fcntl           /* defines flags for open               */
 signal          /* defines signal handlers, etc         */
+unistd          /* defines read, write, ...             */
 
 Makefile:
 The options I included for check work as follows

@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <unistd.h>
 
 void handler(int sig) {
     if (sig == SIGSEGV) {
