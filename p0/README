@@ -1,0 +1,32 @@
+NAME: Daniel Levi-Minzi
+EMAIL: dleviminzi@protonmail.com
+ID: 004923946
+
+included files (lab0.c): 
+stdio           /* standard input/output                */
+stdlib          /* needed for exit; c std library       */
+getopt          /* used to parse options/arguments      */
+fcntl           /* defines flags for open               */
+signal          /* defines signal handlers, etc         */
+
+Makefile:
+The options I included for check work as follows
+    ioTest     - checks copying is as expected when input and output files 
+                 exist.
+    iTest      - check copying works when input file exists, but output file 
+                 must be created.
+    oTest      - checks that copying works when input file is not present, but 
+                 output file exists.
+    segTest    - checks that segfault occurs and catch exits correctly and 
+                 outputs error message correctly.
+    badOptTest - checks that sending a nonsense option to executable results 
+                 in correct exit code and sends an error message. 
+
+backtrace: gdb --args lab0 --segfault   THEN   r   THEN    bt
+
+breakpoint: gdb --args lab0 --segfault   THEN   b 69   THEN   r   THEN   p ptr
+
+
+I used man7 for man pages and the following article was very helpful when it
+came to understanding getopt
+https://azrael.digipen.edu/~mmead/www/mg/getopt/index.html
