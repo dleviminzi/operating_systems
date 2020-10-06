@@ -9,6 +9,9 @@ getopt          /* used to parse options/arguments      */
 fcntl           /* defines flags for open               */
 signal          /* defines signal handlers, etc         */
 unistd          /* defines read, write, ...             */
+string.h        /* declares strerror(3)                 */
+errno.h         /* declares errno for strerror(3)       */
+stdbool.h       /* declares bool type                   */
 
 Makefile:
 The options I included for check work as follows
