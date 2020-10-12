@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
-                    fprintf("Error occured during polling: %s\n", strerror(errno));
+                    fprintf(stderr, "Error occured during polling: %s\n", strerror(errno));
                     restoreTermAttributes();
                     exit(1);
                 }
