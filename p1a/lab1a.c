@@ -74,7 +74,8 @@ void fdRedirect(int newFD, int targetFD) {
 
 int main(int argc, char *argv[]) {
 
-    char buff[256]; /* how big should this be? */
+    char termBuff[256]; /* how big should this be? */
+    char shellBuff[256];
     /*
     *                   OPT/ARG HANDLING
     */
@@ -173,22 +174,21 @@ int main(int argc, char *argv[]) {
 
                 /* checking keyboard for events */
                 if (pollArr[KB].revents & POLLIN) {
-                    int lenBuff = readBuff(STDIN_FILENO, buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
-                    writeBuff(termToShell[1], buff, lenBuff, 1, &restoreAttr);
+                    int lenBuff = readBuff(STDIN_FILENO, termBuff);
+                    writeBuff(STDOUT_FILENO, termBuff, lenBuff, 0, &restoreAttr);
+                    writeBuff(termToShell[1], termBuff, lenBuff, 1, &restoreAttr);
                 }
                 
                 /* checking shell for events */
                 if (pollArr[SHL].revents & POLLIN) {
-                    int lenBuff = readBuff(shellToTerm[0], buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
+                    int lenBuff = readBuff(shellToTerm[0], shellBuff);
+                    writeBuff(STDOUT_FILENO, shellBuff, lenBuff, 0, &restoreAttr);
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
                     exit(1);
                 }
             }
-
 
         } else if (frk == 0) {  /* kid */
             /* close unused */
@@ -222,8 +222,8 @@ int main(int argc, char *argv[]) {
 
         /* reading into buffer and then writing into stdout */
         while (1) {
-            int lenBuff = readBuff(STDIN_FILENO, buff);
-            writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
+            int lenBuff = readBuff(STDIN_FILENO, termBuff);
+            writeBuff(STDOUT_FILENO, termBuff, lenBuff, 0, &restoreAttr);
         }
     }
 
