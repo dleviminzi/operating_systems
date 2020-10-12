@@ -73,8 +73,8 @@ void fdRedirect(int newFD, int targetFD) {
 }
 
 int main(int argc, char *argv[]) {
-    char buff[256]; /* how big should this be? */
 
+    char buff[256]; /* how big should this be? */
     /*
     *                   OPT/ARG HANDLING
     */
@@ -191,16 +191,22 @@ int main(int argc, char *argv[]) {
 
 
         } else if (frk == 0) {  /* kid */
+            /* close unused */
+            close(termToShell[1]);
+            close(shellToTerm[0]);
+
             /* setting up stdin */
-            close(termToShell[1]); 
             fdRedirect(termToShell[0], STDIN_FILENO);
+            close(termToShell[0]);
 
             /* setting up stdout */
-            close(shellToTerm[0]);
             fdRedirect(shellToTerm[1], STDOUT_FILENO);
             fdRedirect(shellToTerm[1], STDERR_FILENO);
+            close(shellToTerm[1]);
 
-            if (execl(program, program, NULL) == -1) {
+            char *exeArgs[] = {program, NULL};
+
+            if (execvp(program, exeArgs) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
             }
 
