@@ -8,25 +8,43 @@
 #include <string.h>
 #include <getopt.h>
 #include <poll.h>
+#include <sys/wait.h>
 
 
-#define BUFFSIZE 256
 #define SHL 1
 #define KB 0
+#define WR 1
+#define RD 0
 #define CONFUSED 1
 
+int dFlg = 0; /* flag that EOF was passed in */
+int cFlg = 0; /* flag that ^C was passed in */
+int spFlg = 0;
+struct termios restoreAttr; /* hold initial terminal attributes */
+
+/* restore terminal attributes to the original state */
+void restoreTermAttributes() {
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
+        fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
+        exit(1);
+    }
+}
+
+/* read buffer and return length of read */
 int readBuff(int fd, char *buff) {
-    int lenRead = read(fd, buff, BUFFSIZE);
+    int lenRead = read(fd, buff, sizeof buff);
 
     if (lenRead < 0) {
         fprintf(stderr, "Failed to read stdin: %s", strerror(errno));
+        restoreTermAttributes();
         exit(1);
     }
 
     return lenRead;
 }
 
-void writeBuff(int fd, char *buff, int lenBytes, int shell, struct termios *restoreAttr) {
+/* write buffer to channel specified in file descriptor */
+void writeBuff(int fd, char *buff, int lenBytes, int shell) {
     int index = 0;
 
     while (index < lenBytes) {
@@ -34,30 +52,41 @@ void writeBuff(int fd, char *buff, int lenBytes, int shell, struct termios *rest
 
         switch (*c) {
             case 4:      /* ^D */
-                tcsetattr(STDIN_FILENO, TCSANOW, restoreAttr);
-                exit(0);
+                if (write(fd, "^D", 2) < 0) {
+                    fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+                    restoreTermAttributes();
+                    exit(1);
+                }
+                dFlg = 1;
                 break;
             case 3:      /* ^C */
-                tcsetattr(STDIN_FILENO, TCSANOW, restoreAttr);
-                exit(0);
+                if (write(fd, "^C", 2) < 0) {
+                    fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+                    restoreTermAttributes();
+                    exit(1);
+                }
+                cFlg = 1;
                 break;
             case '\r':
             case '\n':
                 if (shell) {
                     if (write(fd, "\n", 1) < 0) {
                         fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+                        restoreTermAttributes();
                         exit(1);
                     }
                 } else {
                     if (write(fd, "\r\n", 2) < 0) {
                         fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+                        restoreTermAttributes();
                         exit(1);
                     }
                 }
                 break;
             default:
-                if (write(fd, c, sizeof c) < 0) {
+                if (write(fd, c, 1) < 0) {
                     fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+                    restoreTermAttributes();
                     exit(1);
                 }
                 break;
@@ -72,26 +101,27 @@ void fdRedirect(int newFD, int targetFD) {
     dup2(newFD, targetFD);
 }
 
+void sigHandler(int sig) {
+    if (sig == SIGPIPE) {
+        spFlg = 1;
+    }
+}
+
 int main(int argc, char *argv[]) {
+    int shellFlg = 0;           /* flag for shell option */
+    int opt = 0;                /* getopt options */
+    int option_index = 0;       
+    char *program;              /* shell name */
+    char buff[256];             /* buffer initialization */
 
-    char termBuff[256]; /* how big should this be? */
-    char shellBuff[256];
-    /*
-    *                   OPT/ARG HANDLING
-    */
+    signal(SIGPIPE, sigHandler);
 
-    int shellFlg = 0;
-    char *program;
-
-    /* define option for shell argument */
-    static struct option long_options[] = {
+    static struct option long_options[] = {         /* shell option */ 
         {"shell", required_argument, NULL, 's'},
         {0, 0, 0, 0}
     };
 
-    int opt = 0;
-    int option_index = 0;
-
+    /* Option processing */
     while ((opt = getopt_long(argc, argv, ":s:", long_options, &option_index)) != -1) {
         switch(opt) {
             case 's':
@@ -102,44 +132,29 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Unknown option. Permitted option: shell\n");
                 exit(1);
             case ':':
-                fprintf(stderr, "Invalid argument provided for option.");
+                fprintf(stderr, "Invalid argument provided for option.\n");
                 exit(1);
         }
     }
-    
-    /* check for additional non-option arguments */
-    if (argv[optind]) {
-        fprintf(stderr, "Non-option arguments are not permitted: %s\n", argv[optind]);
-        exit(1);
-    }
 
-
-    /*
-    *               CHANGING TERMINAL ATTRIBUTES
-    */
-
-    struct termios restoreAttr; /* hold initial terminal attributes */
-
-    /* populate restore point w/ initial terminal attributes */
+    /* Terminal attributes modifications (keeping a restore point) */
     if (tcgetattr(STDIN_FILENO, &restoreAttr) != 0) {
-        fprintf(stderr, "Failure to retrieve current terminal attributes"); 
+        fprintf(stderr, "Failure to retrieve current terminal attributes: %s\n", strerror(errno));
+        exit(1); 
     } 
 
-    /* make copy of terminal attributes w/ changes defined in spec */
     struct termios newAttr = restoreAttr;
     newAttr.c_iflag = ISTRIP;
     newAttr.c_oflag = 0;
     newAttr.c_lflag = 0;
 
-    /* set terminal to use new attributes */
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newAttr) != 0) {
-        fprintf(stderr, "Failure to set new terminal attributes.");
+        fprintf(stderr, "Failure to set new terminal attributes: %s", strerror(errno));
+        restoreTermAttributes();
+        exit(1);
     }
 
-    /*
-    *           FORKING
-    */ 
-
+    /* Multiprocess mode */
     if (shellFlg) {
         int termToShell[2];
         int shellToTerm[2];
@@ -148,87 +163,91 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Pipe setup failed: %s", strerror(errno));
         }
 
-        int frk = fork();
+        int cpid = fork();
 
-        if (frk > 0) {          /* parent */    
-            close(shellToTerm[1]); 
-            close(termToShell[0]);
+        if (cpid > 0) {  /* parent */    
+            close(shellToTerm[WR]);     /* parent only reads from this pipe */
+            close(termToShell[RD]);     /* parent only writes in this pipe */
 
-            /* polling structure */
-            struct pollfd pollArr[2];
-
-            pollArr[KB].fd = STDIN_FILENO; /* kb */
-            pollArr[KB].events = POLLIN;
-            pollArr[SHL].fd = shellToTerm[0];       /* shell */
+            /* Polling for input from shell and keyboard */
+            struct pollfd pollArr[2]; /* specifying events to watch for */
+            pollArr[KB].fd = STDIN_FILENO;  
+            pollArr[KB].events = POLLIN;           
+            pollArr[SHL].fd = shellToTerm[0];      
             pollArr[SHL].events = POLLIN;
 
-            /* polling for input from keyboard or shell */
             while (1) {
                 int ret = poll(pollArr, 2, 0);
 
-                /* -1 => error in polling, 0 => no events */
-                if (ret == -1) {
+                if (ret == -1) {        /* -1 err in poll, 0 no events */
                     fprintf(stderr, "Polling failed: %s", strerror(errno));
+                    restoreTermAttributes();
                     exit(1);
                 } else if (ret == 0) continue;
 
-                /* checking keyboard for events */
-                if (pollArr[KB].revents & POLLIN) {
-                    int lenBuff = readBuff(STDIN_FILENO, termBuff);
-                    writeBuff(STDOUT_FILENO, termBuff, lenBuff, 0, &restoreAttr);
-                    writeBuff(termToShell[1], termBuff, lenBuff, 1, &restoreAttr);
+                if (pollArr[KB].revents & POLLIN) {         /* kb event check */
+                    int lenBuff = readBuff(STDIN_FILENO, buff);
+                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
+                    if (dFlg) {
+                        close(termToShell[WR]);
+                    } 
+                    if (cFlg) {
+                        kill(cpid, SIGINT);
+                    }
+                    if (!cFlg && !dFlg) writeBuff(termToShell[WR], buff, lenBuff, 1);
                 }
                 
-                /* checking shell for events */
-                if (pollArr[SHL].revents & POLLIN) {
-                    int lenBuff = readBuff(shellToTerm[0], shellBuff);
-                    writeBuff(STDOUT_FILENO, shellBuff, lenBuff, 0, &restoreAttr);
+                if (pollArr[SHL].revents & POLLIN) {     /* shell event check */
+                    int lenBuff = readBuff(shellToTerm[RD], buff);
+                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
+                    fprintf("Error occured during polling: %s\n", strerror(errno));
+                    restoreTermAttributes();
                     exit(1);
+                }
+
+                if (dFlg || spFlg) {
+                    int status;
+                    waitpid(cpid, &status, 0);
+                    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
+                    exit(0);
                 }
             }
 
-        } else if (frk == 0) {  /* kid */
-            /* close unused */
-            close(termToShell[1]);
-            close(shellToTerm[0]);
+        } else if (cpid == 0) {  /* kid */
+            /* setup piping to/from terminal */
+            close(termToShell[WR]);  /* child only reads from this pipe */
+            close(shellToTerm[RD]);  /* child only writes to this pipe */
 
-            /* setting up stdin */
-            fdRedirect(termToShell[0], STDIN_FILENO);
-            close(termToShell[0]);
+            fdRedirect(termToShell[0], STDIN_FILENO);  /* read to stdin */
+            close(termToShell[0]);                     
 
-            /* setting up stdout */
-            fdRedirect(shellToTerm[1], STDOUT_FILENO);
+            fdRedirect(shellToTerm[1], STDOUT_FILENO);  /* write to stdout/err */
             fdRedirect(shellToTerm[1], STDERR_FILENO);
             close(shellToTerm[1]);
 
-            char *exeArgs[] = {program, NULL};
-
-            if (execvp(program, exeArgs) == -1) {
+            /* Shell process takes over */
+            if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
+                restoreTermAttributes();
+                exit(1);
             }
 
-        } else if (frk == -1){  /* failed */
+        } else if (cpid == -1){  /* failed */
             fprintf(stderr, "Fork failed: %s", strerror(errno));
+            restoreTermAttributes();
             exit(1);
         }
 
     } else {
-        /*
-        *             NO SHELL OPT/ARG WERE PROVIDED
-        */
-
-        /* reading into buffer and then writing into stdout */
+        /* Default mode */
         while (1) {
-            int lenBuff = readBuff(STDIN_FILENO, termBuff);
-            writeBuff(STDOUT_FILENO, termBuff, lenBuff, 0, &restoreAttr);
+            int lenBuff = readBuff(STDIN_FILENO, buff);                 /* read stdin */
+            writeBuff(STDOUT_FILENO, buff, lenBuff, 0);   /* write to stdout */
         }
     }
-
-    /* restore terminal attributes to the original state */
-    tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr);
 
     return 0;   
 }
