@@ -26,7 +26,7 @@ int readBuff(int fd, char *buff) {
     return lenRead;
 }
 
-void writeBuff(int fd, char *buff, int lenBytes, int shell) {
+void writeBuff(int fd, char *buff, int lenBytes, int shell, struct termios *restoreAttr) {
     int index = 0;
 
     while (index < lenBytes) {
@@ -34,9 +34,11 @@ void writeBuff(int fd, char *buff, int lenBytes, int shell) {
 
         switch (*c) {
             case 4:      /* ^D */
+                tcsetattr(STDIN_FILENO, TCSANOW, restoreAttr);
                 exit(0);
                 break;
             case 3:      /* ^C */
+                tcsetattr(STDIN_FILENO, TCSANOW, restoreAttr);
                 exit(0);
                 break;
             case '\r':
@@ -172,14 +174,14 @@ int main(int argc, char *argv[]) {
                 /* checking keyboard for events */
                 if (pollArr[KB].revents & POLLIN) {
                     int lenBuff = readBuff(STDIN_FILENO, buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
-                    writeBuff(pFromTerm[0], buff, lenBuff, 1);
+                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
+                    writeBuff(pFromTerm[0], buff, lenBuff, 1, &restoreAttr);
                 }
                 
                 /* checking shell for events */
                 if (pollArr[SHL].revents & POLLIN) {
                     int lenBuff = readBuff(pFromTerm[0], buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
+                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[1].revents & POLLERR) {
@@ -215,7 +217,7 @@ int main(int argc, char *argv[]) {
         /* reading into buffer and then writing into stdout */
         while (1) {
             int lenBuff = readBuff(STDIN_FILENO, buff);
-            writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
+            writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
         }
     }
 
