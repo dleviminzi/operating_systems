@@ -140,25 +140,25 @@ int main(int argc, char *argv[]) {
     */ 
 
     if (shellFlg) {
-        int pFromTerm[2];
-        int pToTerm[2];
+        int termToShell[2];
+        int shellToTerm[2];
 
-        if (pipe(pFromTerm) == -1 || pipe(pToTerm) == -1) {
+        if (pipe(termToShell) == -1 || pipe(shellToTerm) == -1) {
             fprintf(stderr, "Pipe setup failed: %s", strerror(errno));
         }
 
         int frk = fork();
 
         if (frk > 0) {          /* parent */    
-            close(pFromTerm[1]); 
-            close(pToTerm[0]);
+            close(shellToTerm[1]); 
+            close(termToShell[0]);
 
             /* polling structure */
             struct pollfd pollArr[2];
 
             pollArr[KB].fd = STDIN_FILENO; /* kb */
             pollArr[KB].events = POLLIN;
-            pollArr[SHL].fd = pFromTerm[0];       /* shell */
+            pollArr[SHL].fd = shellToTerm[0];       /* shell */
             pollArr[SHL].events = POLLIN;
 
             /* polling for input from keyboard or shell */
@@ -175,16 +175,16 @@ int main(int argc, char *argv[]) {
                 if (pollArr[KB].revents & POLLIN) {
                     int lenBuff = readBuff(STDIN_FILENO, buff);
                     writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
-                    writeBuff(pFromTerm[0], buff, lenBuff, 1, &restoreAttr);
+                    writeBuff(termToShell[1], buff, lenBuff, 1, &restoreAttr);
                 }
                 
                 /* checking shell for events */
                 if (pollArr[SHL].revents & POLLIN) {
-                    int lenBuff = readBuff(pFromTerm[0], buff);
+                    int lenBuff = readBuff(shellToTerm[0], buff);
                     writeBuff(STDOUT_FILENO, buff, lenBuff, 0, &restoreAttr);
                 }
 
-                if (pollArr[SHL].revents & POLLHUP || pollArr[1].revents & POLLERR) {
+                if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
                     exit(1);
                 }
             }
@@ -192,13 +192,13 @@ int main(int argc, char *argv[]) {
 
         } else if (frk == 0) {  /* kid */
             /* setting up stdin */
-            close(pFromTerm[0]); 
-            fdRedirect(pFromTerm[0], STDIN_FILENO);
+            close(termToShell[1]); 
+            fdRedirect(termToShell[0], STDIN_FILENO);
 
             /* setting up stdout */
-            close(pToTerm[1]);
-            fdRedirect(pToTerm[1], STDOUT_FILENO);
-            fdRedirect(pToTerm[1], STDERR_FILENO);
+            close(shellToTerm[0]);
+            fdRedirect(shellToTerm[1], STDOUT_FILENO);
+            fdRedirect(shellToTerm[1], STDERR_FILENO);
 
             if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
