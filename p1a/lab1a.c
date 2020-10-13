@@ -188,8 +188,13 @@ int main(int argc, char *argv[]) {
                 if (pollArr[KB].revents & POLLIN) {         /* kb event check */
                     int lenBuff = readBuff(STDIN_FILENO, buff);
                     writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
-                    if (dFlg) {
+                    if (dFlg || spFlg)) {
                         close(termToShell[WR]);
+                        int status;
+                        waitpid(cpid, &status, 0);
+                        fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
+                        restoreTermAttributes();
+                        exit(0);
                     } 
                     if (cFlg) {
                         kill(cpid, SIGINT);
@@ -206,13 +211,6 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Error occured during polling: %s\n", strerror(errno));
                     restoreTermAttributes();
                     exit(1);
-                }
-
-                if (dFlg || spFlg) {
-                    int status;
-                    waitpid(cpid, &status, 0);
-                    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
-                    exit(0);
                 }
             }
 
