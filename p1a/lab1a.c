@@ -31,13 +31,21 @@ void restoreTermAttributes() {
         fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
         exit(1);
     }
+
+        /* waiting on child */
+    int status;
+
+    if (waitpid(cpid, &status, 0) == -1) {
+        fprintf(stderr, "waiting for child failed: %s", strerror(errno));
+    }
+
+    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
 }
 
 /* basic write error checking */
 void extWrite(int fd, char *c, int numChars) {
     if (write(fd, c, numChars) < 0) {
         fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-        restoreTermAttributes();
         exit(1);
     }
 }
@@ -48,29 +56,10 @@ void fdRedirect(int newFD, int targetFD) {
     dup2(newFD, targetFD);
 }
 
-/* shutdown process */
-void shutdown() {
-    restoreTermAttributes();
-    exit(0);
-}
-
-/* shell shutdown process */
-void shellShutdown() {
-    /* no longer going to be sending input to the shell */
-    close(termToShell[WR]);
-
-    /* waiting on child */
-    int status;
-    waitpid(cpid, &status, 0);
-    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
-    restoreTermAttributes();
-    exit(0);
-}
-
 /* sig handler for SIGPIPE */
 void sigHandler(int sig) {
     if (sig == SIGPIPE) {
-        shellShutdown();
+        exit(0);
     }
 }
 
@@ -80,7 +69,6 @@ int readBuff(int fd, char *buff) {
 
     if (lenRead < 0) {
         fprintf(stderr, "Failed to read stdin: %s", strerror(errno));
-        restoreTermAttributes();
         exit(1);
     }
 
@@ -96,20 +84,18 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
 
         switch (*c) {
             case 4:      /* ^D */
-                extWrite(fd, "^D", 2);
+                //extWrite(fd, "^D", 2);
                 if (shellFlg) {
-                    shellShutdown();
-                } else shutdown();
+                    close(termToShell[WR]); /* both ends closed sends EOF to shell */
+                } else exit(0);
                 break;
             case 3:      /* ^C */
-                extWrite(fd, "^C", 2);
+                //extWrite(fd, "^C", 2);
                 if (shellFlg) {
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
-                        restoreTermAttributes();
                         exit(1);
                     }
-                    shellShutdown();
                 }
                 break;
             case '\r':
@@ -162,6 +148,8 @@ int main(int argc, char *argv[]) {
         exit(1); 
     } 
 
+    atexit(restoreTermAttributes);
+
     struct termios newAttr = restoreAttr;
     newAttr.c_iflag = ISTRIP;
     newAttr.c_oflag = 0;
@@ -169,9 +157,9 @@ int main(int argc, char *argv[]) {
 
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newAttr) != 0) {
         fprintf(stderr, "Failure to set new terminal attributes: %s", strerror(errno));
-        restoreTermAttributes();
         exit(1);
     }
+
 
     /* Multiprocess mode */
     if (shellFlg) {
@@ -191,7 +179,7 @@ int main(int argc, char *argv[]) {
             struct pollfd pollArr[2]; /* specifying events to watch for */
             pollArr[KB].fd = STDIN_FILENO;  
             pollArr[KB].events = POLLIN;           
-            pollArr[SHL].fd = shellToTerm[0];      
+            pollArr[SHL].fd = shellToTerm[RD];      
             pollArr[SHL].events = POLLIN;
 
             while (1) {
@@ -215,8 +203,6 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
-                    fprintf(stderr, "Error occured during polling: %s\n", strerror(errno));
-                    restoreTermAttributes();
                     exit(1);
                 }
             }
@@ -236,13 +222,11 @@ int main(int argc, char *argv[]) {
             /* Shell process takes over */
             if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
-                restoreTermAttributes();
                 exit(1);
             }
 
         } else if (cpid == -1){  /* failed */
             fprintf(stderr, "Fork failed: %s", strerror(errno));
-            restoreTermAttributes();
             exit(1);
         }
     } else {
