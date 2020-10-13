@@ -16,7 +16,8 @@
 #define RD 0
 #define SHELL_RECEIVE 1
 #define STDOUT_RECEIVE 0
-#define CONFUSED 1
+#define ERROR 1
+#define SUCCESS 0
 
 int shellFlg = 0;           /* flag for shell option */
 int termToShell[2];         /* pipe term ---> shell */
@@ -25,22 +26,6 @@ int cpid;                   /* child process ID     */
 struct termios restoreAttr; /* hold initial terminal attributes */
 
 
-/* restore terminal attributes to the original state */
-void restoreTermAttributes() {
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
-        fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
-        exit(1);
-    }
-
-        /* waiting on child */
-    int status;
-
-    if (waitpid(cpid, &status, 0) == -1) {
-        fprintf(stderr, "waiting for child failed: %s", strerror(errno));
-    }
-
-    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
-}
 
 /* basic write error checking */
 void extWrite(int fd, char *c, int numChars) {
@@ -61,6 +46,29 @@ void sigHandler(int sig) {
     if (sig == SIGPIPE) {
         exit(0);
     }
+}
+
+void restoreTermAttributes() {
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
+        fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
+        exit(1);
+    }
+}
+
+/* exit while restoring terminal attributes and waiting on child process */
+void shutdown(int exitStatus) {
+    restoreTermAttributes();
+
+    /* waiting on child */
+    int status;
+
+    if (waitpid(cpid, &status, 0) == -1) {
+        fprintf(stderr, "waiting for child failed: %s", strerror(errno));
+    }
+
+    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
+
+    exit(exitStatus);
 }
 
 /* read buffer and return length of read */
@@ -87,13 +95,14 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
                 //extWrite(fd, "^D", 2);
                 if (shellFlg) {
                     close(termToShell[WR]); /* both ends closed sends EOF to shell */
-                } else exit(0);
+                } else shutdown(0);
                 break;
             case 3:      /* ^C */
                 //extWrite(fd, "^C", 2);
                 if (shellFlg) {
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
+                        restoreTermAttributes();
                         exit(1);
                     }
                 }
@@ -148,8 +157,6 @@ int main(int argc, char *argv[]) {
         exit(1); 
     } 
 
-    atexit(restoreTermAttributes);
-
     struct termios newAttr = restoreAttr;
     newAttr.c_iflag = ISTRIP;
     newAttr.c_oflag = 0;
@@ -157,6 +164,7 @@ int main(int argc, char *argv[]) {
 
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newAttr) != 0) {
         fprintf(stderr, "Failure to set new terminal attributes: %s", strerror(errno));
+        restoreTermAttributes();
         exit(1);
     }
 
@@ -203,7 +211,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
-                    exit(1);
+                    shutdown(1);
                 }
             }
 
@@ -222,11 +230,13 @@ int main(int argc, char *argv[]) {
             /* Shell process takes over */
             if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
+                restoreTermAttributes();
                 exit(1);
             }
 
         } else if (cpid == -1){  /* failed */
             fprintf(stderr, "Fork failed: %s", strerror(errno));
+            restoreTermAttributes();
             exit(1);
         }
     } else {
