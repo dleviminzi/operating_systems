@@ -109,6 +109,7 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
                         restoreTermAttributes();
                         exit(1);
                     }
+                    shellShutdown();
                 }
                 break;
             case '\r':
