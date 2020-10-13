@@ -244,8 +244,13 @@ int main(int argc, char *argv[]) {
     } else {
         /* Default mode */
         while (1) {
-            int lenBuff = readBuff(STDIN_FILENO, buff);                 /* read stdin */
+            int lenBuff = readBuff(STDIN_FILENO, buff);   /* read stdin */
             writeBuff(STDOUT_FILENO, buff, lenBuff, 0);   /* write to stdout */
+
+            if (dFlg) {
+                restoreTermAttributes();
+                exit(0);
+            }
         }
     }
 
