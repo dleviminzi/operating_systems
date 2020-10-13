@@ -10,23 +10,67 @@
 #include <poll.h>
 #include <sys/wait.h>
 
-
 #define SHL 1
 #define KB 0
 #define WR 1
 #define RD 0
+#define SHELL_RECEIVE 1
+#define STDOUT_RECEIVE 0
 #define CONFUSED 1
 
-int dFlg = 0; /* flag that EOF was passed in */
-int cFlg = 0; /* flag that ^C was passed in */
-int spFlg = 0;
+int shellFlg = 0;           /* flag for shell option */
+int termToShell[2];         /* pipe term ---> shell */
+int shellToTerm[2];         /* pipe shell ---> term */
+int cpid;                   /* child process ID     */
 struct termios restoreAttr; /* hold initial terminal attributes */
+
 
 /* restore terminal attributes to the original state */
 void restoreTermAttributes() {
     if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
         fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
         exit(1);
+    }
+}
+
+/* basic write error checking */
+void extWrite(int fd, char *c, int numChars) {
+    if (write(fd, c, numChars) < 0) {
+        fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+        restoreTermAttributes();
+        exit(1);
+    }
+}
+
+/* redirect file to target file descriptor */
+void fdRedirect(int newFD, int targetFD) {
+    close(targetFD);
+    dup2(newFD, targetFD);
+}
+
+/* shutdown process */
+void shutdown() {
+    restoreTermAttributes();
+    exit(0);
+}
+
+/* shell shutdown process */
+void shellShutdown() {
+    /* no longer going to be sending input to the shell */
+    close(termToShell[WR]);
+
+    /* waiting on child */
+    int status;
+    waitpid(cpid, &status, 0);
+    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
+    restoreTermAttributes();
+    exit(0);
+}
+
+/* sig handler for SIGPIPE */
+void sigHandler(int sig) {
+    if (sig == SIGPIPE) {
+        shellShutdown();
     }
 }
 
@@ -44,7 +88,7 @@ int readBuff(int fd, char *buff) {
 }
 
 /* write buffer to channel specified in file descriptor */
-void writeBuff(int fd, char *buff, int lenBytes, int shell) {
+void processBuff(int fd, char *buff, int lenBytes, int isShell) {
     int index = 0;
 
     while (index < lenBytes) {
@@ -52,69 +96,43 @@ void writeBuff(int fd, char *buff, int lenBytes, int shell) {
 
         switch (*c) {
             case 4:      /* ^D */
-                if (write(fd, "^D", 2) < 0) {
-                    fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-                    restoreTermAttributes();
-                    exit(1);
-                }
-                dFlg = 1;
+                extWrite(fd, "^D", 2);
+                if (shellFlg) {
+                    shellShutdown();
+                } else shutdown();
                 break;
             case 3:      /* ^C */
-                if (write(fd, "^C", 2) < 0) {
-                    fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-                    restoreTermAttributes();
-                    exit(1);
+                extWrite(fd, "^C", 2);
+                if (shellFlg) {
+                    if (kill(cpid, SIGINT) < 0) {
+                        fprintf(stderr, "Kill failed: %s", strerror(errno));
+                        restoreTermAttributes();
+                        exit(1);
+                    }
                 }
-                cFlg = 1;
                 break;
             case '\r':
             case '\n':
-                if (shell) {
-                    if (write(fd, "\n", 1) < 0) {
-                        fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-                        restoreTermAttributes();
-                        exit(1);
-                    }
+                if (isShell) {
+                    extWrite(fd, "\n", 1);
                 } else {
-                    if (write(fd, "\r\n", 2) < 0) {
-                        fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-                        restoreTermAttributes();
-                        exit(1);
-                    }
+                    extWrite(fd, "\r\n", 2);
                 }
                 break;
             default:
-                if (write(fd, c, 1) < 0) {
-                    fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-                    restoreTermAttributes();
-                    exit(1);
-                }
+                extWrite(fd, c, 1);
                 break;
         }
         index++;
     }
-
 }
 
-void fdRedirect(int newFD, int targetFD) {
-    close(targetFD);
-    dup2(newFD, targetFD);
-}
-
-void sigHandler(int sig) {
-    if (sig == SIGPIPE) {
-        spFlg = 1;
-    }
-}
 
 int main(int argc, char *argv[]) {
-    int shellFlg = 0;           /* flag for shell option */
     int opt = 0;                /* getopt options */
     int option_index = 0;       
     char *program;              /* shell name */
     char buff[256];             /* buffer initialization */
-
-    signal(SIGPIPE, sigHandler);
 
     static struct option long_options[] = {         /* shell option */ 
         {"shell", required_argument, NULL, 's'},
@@ -156,14 +174,13 @@ int main(int argc, char *argv[]) {
 
     /* Multiprocess mode */
     if (shellFlg) {
-        int termToShell[2];
-        int shellToTerm[2];
+        signal(SIGPIPE, sigHandler);
 
         if (pipe(termToShell) == -1 || pipe(shellToTerm) == -1) {
             fprintf(stderr, "Pipe setup failed: %s", strerror(errno));
         }
 
-        int cpid = fork();
+        cpid = fork();
 
         if (cpid > 0) {  /* parent */    
             close(shellToTerm[WR]);     /* parent only reads from this pipe */
@@ -177,34 +194,23 @@ int main(int argc, char *argv[]) {
             pollArr[SHL].events = POLLIN;
 
             while (1) {
-                int ret = poll(pollArr, 2, 0);
+                int events = poll(pollArr, 2, 0);
 
-                if (ret == -1) {        /* -1 err in poll, 0 no events */
+                if (events == -1) {        /* -1 err in poll, 0 no events */
                     fprintf(stderr, "Polling failed: %s", strerror(errno));
                     restoreTermAttributes();
                     exit(1);
-                } else if (ret == 0) continue;
+                } else if (events == 0) continue;
 
                 if (pollArr[KB].revents & POLLIN) {         /* kb event check */
                     int lenBuff = readBuff(STDIN_FILENO, buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
-                    if (dFlg || spFlg)) {
-                        close(termToShell[WR]);
-                        int status;
-                        waitpid(cpid, &status, 0);
-                        fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
-                        restoreTermAttributes();
-                        exit(0);
-                    } 
-                    if (cFlg) {
-                        kill(cpid, SIGINT);
-                    }
-                    if (!cFlg && !dFlg) writeBuff(termToShell[WR], buff, lenBuff, 1);
+                    processBuff(STDOUT_FILENO, buff, lenBuff, STDOUT_RECEIVE);
+                    processBuff(termToShell[WR], buff, lenBuff, SHELL_RECEIVE);
                 }
                 
                 if (pollArr[SHL].revents & POLLIN) {     /* shell event check */
                     int lenBuff = readBuff(shellToTerm[RD], buff);
-                    writeBuff(STDOUT_FILENO, buff, lenBuff, 0);
+                    processBuff(STDOUT_FILENO, buff, lenBuff, STDOUT_RECEIVE);
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
@@ -219,12 +225,12 @@ int main(int argc, char *argv[]) {
             close(termToShell[WR]);  /* child only reads from this pipe */
             close(shellToTerm[RD]);  /* child only writes to this pipe */
 
-            fdRedirect(termToShell[0], STDIN_FILENO);  /* read to stdin */
-            close(termToShell[0]);                     
+            fdRedirect(termToShell[RD], STDIN_FILENO);  /* read to stdin */
+            close(termToShell[RD]);                     
 
-            fdRedirect(shellToTerm[1], STDOUT_FILENO);  /* write to stdout/err */
-            fdRedirect(shellToTerm[1], STDERR_FILENO);
-            close(shellToTerm[1]);
+            fdRedirect(shellToTerm[WR], STDOUT_FILENO);  /* write to stdout/err */
+            fdRedirect(shellToTerm[WR], STDERR_FILENO);
+            close(shellToTerm[WR]);
 
             /* Shell process takes over */
             if (execl(program, program, NULL) == -1) {
@@ -238,17 +244,11 @@ int main(int argc, char *argv[]) {
             restoreTermAttributes();
             exit(1);
         }
-
     } else {
         /* Default mode */
         while (1) {
             int lenBuff = readBuff(STDIN_FILENO, buff);   /* read stdin */
-            writeBuff(STDOUT_FILENO, buff, lenBuff, 0);   /* write to stdout */
-
-            if (dFlg) {
-                restoreTermAttributes();
-                exit(0);
-            }
+            processBuff(STDOUT_FILENO, buff, lenBuff, STDOUT_RECEIVE);   /* write to stdout */
         }
     }
 
