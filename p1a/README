@@ -1,3 +1,22 @@
 NAME: Daniel Levi-Minzi
 EMAIL: dleviminzi@protonmail.com
 ID: 004923946
+
+termios - used to get/set terminal attributes
+fcntl   - defines various flags
+signal  - used for SIGPIPE handling
+unistd  - read, write, pipe, etc
+errno   - error message formating 
+string  - error message formating 
+getopt  - option handling 
+poll    - used for checking between parent/child process
+
+for understanding pipe this was good
+https://tldp.org/LDP/lpg/node11.html
+
+this example using poll was good 
+https://github.com/raoulmillais/linux-system-programming/blob/master/src/poll-example.c 
+
+this scared/informed me into just going for the globals 
+https://stackoverflow.com/questions/176118/when-is-it-ok-to-use-a-global-variable-in-c
+

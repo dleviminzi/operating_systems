@@ -4,4 +4,4 @@ clean:
 	rm -f *.o lab1a *.txt *.tar.gz
 
 dist: default
-	tar -czf lab1a-004923946.tar.gz README Makefile lab0.c
+	tar -czf lab1a-004923946.tar.gz README Makefile lab1a.c

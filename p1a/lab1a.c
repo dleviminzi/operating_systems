@@ -77,7 +77,7 @@ int readBuff(int fd, char *buff) {
 
     if (lenRead < 0) {
         fprintf(stderr, "Failed to read stdin: %s", strerror(errno));
-        exit(1);
+        exit(ERROR);
     }
 
     return lenRead;
@@ -95,7 +95,7 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
                 //extWrite(fd, "^D", 2);
                 if (shellFlg) {
                     close(termToShell[WR]); /* both ends closed sends EOF to shell */
-                } else shutdown(0);
+                } else shutdown(SUCCESS);
                 break;
             case 3:      /* ^C */
                 //extWrite(fd, "^C", 2);
@@ -103,7 +103,7 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
                         restoreTermAttributes();
-                        exit(1);
+                        exit(ERROR);
                     }
                 }
                 break;
@@ -144,10 +144,10 @@ int main(int argc, char *argv[]) {
                 break;
             case '?':
                 fprintf(stderr, "Unknown option. Permitted option: shell\n");
-                exit(1);
+                exit(ERROR);
             case ':':
                 fprintf(stderr, "Invalid argument provided for option.\n");
-                exit(1);
+                exit(ERROR);
         }
     }
 
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newAttr) != 0) {
         fprintf(stderr, "Failure to set new terminal attributes: %s", strerror(errno));
         restoreTermAttributes();
-        exit(1);
+        exit(ERROR);
     }
 
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
                 if (events == -1) {        /* -1 err in poll, 0 no events */
                     fprintf(stderr, "Polling failed: %s", strerror(errno));
                     restoreTermAttributes();
-                    exit(1);
+                    exit(ERROR);
                 } else if (events == 0) continue;
 
                 if (pollArr[KB].revents & POLLIN) {         /* kb event check */
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (pollArr[SHL].revents & POLLHUP || pollArr[SHL].revents & POLLERR) {
-                    shutdown(1);
+                    shutdown(ERROR);
                 }
             }
 
@@ -231,13 +231,13 @@ int main(int argc, char *argv[]) {
             if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
                 restoreTermAttributes();
-                exit(1);
+                exit(ERROR);
             }
 
         } else if (cpid == -1){  /* failed */
             fprintf(stderr, "Fork failed: %s", strerror(errno));
             restoreTermAttributes();
-            exit(1);
+            exit(ERROR);
         }
     } else {
         /* Default mode */
@@ -246,6 +246,5 @@ int main(int argc, char *argv[]) {
             processBuff(STDOUT_FILENO, buff, lenBuff, STDOUT_RECEIVE);   /* write to stdout */
         }
     }
-
-    return 0;   
+    return SUCCESS;   
 }
