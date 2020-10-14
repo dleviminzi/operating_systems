@@ -31,7 +31,7 @@ struct termios restoreAttr; /* hold initial terminal attributes */
 void extWrite(int fd, char *c, int numChars) {
     if (write(fd, c, numChars) < 0) {
         fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-        exit(1);
+        exit(ERROR);
     }
 }
 
@@ -41,17 +41,10 @@ void fdRedirect(int newFD, int targetFD) {
     dup2(newFD, targetFD);
 }
 
-/* sig handler for SIGPIPE */
-void sigHandler(int sig) {
-    if (sig == SIGPIPE) {
-        exit(0);
-    }
-}
-
 void restoreTermAttributes() {
     if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
         fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
-        exit(1);
+        exit(ERROR);
     }
 }
 
@@ -69,6 +62,13 @@ void shutdown(int exitStatus) {
     fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
 
     exit(exitStatus);
+}
+
+/* sig handler for SIGPIPE */
+void sigHandler(int sig) {
+    if (sig == SIGPIPE) {
+        shutdown(SUCCESS);
+    }
 }
 
 /* read buffer and return length of read */
