@@ -31,7 +31,15 @@ struct termios restoreAttr; /* hold initial terminal attributes */
 void extWrite(int fd, char *c, int numChars) {
     if (write(fd, c, numChars) < 0) {
         fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-        exit(ERROR);
+        shutdown(ERROR);
+    }
+}
+
+/* close with error handling */
+void extClose(int fd) {
+    if (close(fd) < 0) {
+        fprintf(stderr, "Failed to close file descriptor: %s", strerror(errno));
+        shutdown(ERROR);
     }
 }
 
@@ -52,14 +60,16 @@ void restoreTermAttributes() {
 void shutdown(int exitStatus) {
     restoreTermAttributes();
 
-    /* waiting on child */
-    int status;
+    if (shellFlg) {
+        /* waiting on child */
+        int status;
 
-    if (waitpid(cpid, &status, 0) == -1) {
-        fprintf(stderr, "waiting for child failed: %s", strerror(errno));
+        if (waitpid(cpid, &status, 0) == -1) {
+            fprintf(stderr, "waiting for child failed: %s", strerror(errno));
+        }
+
+        fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
     }
-
-    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d", WTERMSIG(status), WEXITSTATUS(status));
 
     exit(exitStatus);
 }
@@ -77,7 +87,7 @@ int readBuff(int fd, char *buff) {
 
     if (lenRead < 0) {
         fprintf(stderr, "Failed to read stdin: %s", strerror(errno));
-        exit(ERROR);
+        shutdown(ERROR);
     }
 
     return lenRead;
@@ -94,7 +104,7 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
             case 4:      /* ^D */
                 //extWrite(fd, "^D", 2);
                 if (shellFlg) {
-                    close(termToShell[WR]); /* both ends closed sends EOF to shell */
+                    extClose(termToShell[WR]); /* both ends closed sends EOF to shell */
                 } else shutdown(SUCCESS);
                 break;
             case 3:      /* ^C */
@@ -103,7 +113,7 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
                         restoreTermAttributes();
-                        exit(ERROR);
+                        shutdown(ERROR);
                     }
                 }
                 break;
@@ -154,7 +164,7 @@ int main(int argc, char *argv[]) {
     /* Terminal attributes modifications (keeping a restore point) */
     if (tcgetattr(STDIN_FILENO, &restoreAttr) != 0) {
         fprintf(stderr, "Failure to retrieve current terminal attributes: %s\n", strerror(errno));
-        exit(1); 
+        exit(ERROR); 
     } 
 
     struct termios newAttr = restoreAttr;
@@ -175,13 +185,14 @@ int main(int argc, char *argv[]) {
 
         if (pipe(termToShell) == -1 || pipe(shellToTerm) == -1) {
             fprintf(stderr, "Pipe setup failed: %s", strerror(errno));
+            shutdown(ERROR);
         }
 
         cpid = fork();
 
         if (cpid > 0) {  /* parent */    
-            close(shellToTerm[WR]);     /* parent only reads from this pipe */
-            close(termToShell[RD]);     /* parent only writes in this pipe */
+            extClose(shellToTerm[WR]);     /* parent only reads from this pipe */
+            extClose(termToShell[RD]);     /* parent only writes in this pipe */
 
             /* Polling for input from shell and keyboard */
             struct pollfd pollArr[2]; /* specifying events to watch for */
@@ -196,7 +207,7 @@ int main(int argc, char *argv[]) {
                 if (events == -1) {        /* -1 err in poll, 0 no events */
                     fprintf(stderr, "Polling failed: %s", strerror(errno));
                     restoreTermAttributes();
-                    exit(ERROR);
+                    shutdown(ERROR);
                 } else if (events == 0) continue;
 
                 if (pollArr[KB].revents & POLLIN) {         /* kb event check */
@@ -217,21 +228,21 @@ int main(int argc, char *argv[]) {
 
         } else if (cpid == 0) {  /* kid */
             /* setup piping to/from terminal */
-            close(termToShell[WR]);  /* child only reads from this pipe */
-            close(shellToTerm[RD]);  /* child only writes to this pipe */
+            extClose(termToShell[WR]);  /* child only reads from this pipe */
+            extClose(shellToTerm[RD]);  /* child only writes to this pipe */
 
             fdRedirect(termToShell[RD], STDIN_FILENO);  /* read to stdin */
-            close(termToShell[RD]);                     
+            extClose(termToShell[RD]);                     
 
             fdRedirect(shellToTerm[WR], STDOUT_FILENO);  /* write to stdout/err */
             fdRedirect(shellToTerm[WR], STDERR_FILENO);
-            close(shellToTerm[WR]);
+            extClose(shellToTerm[WR]);
 
             /* Shell process takes over */
             if (execl(program, program, NULL) == -1) {
                 fprintf(stderr, "Exec failed: %s", strerror(errno));
                 restoreTermAttributes();
-                exit(ERROR);
+                shutdown(ERROR);
             }
 
         } else if (cpid == -1){  /* failed */
