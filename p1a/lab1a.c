@@ -25,12 +25,6 @@ int shellToTerm[2];         /* pipe shell ---> term */
 int cpid;                   /* child process ID     */
 struct termios restoreAttr; /* hold initial terminal attributes */
 
-/* redirect file to target file descriptor */
-void fdRedirect(int newFD, int targetFD) {
-    close(targetFD);
-    dup2(newFD, targetFD);
-}
-
 void restoreTermAttributes() {
     if (tcsetattr(STDIN_FILENO, TCSANOW, &restoreAttr) != 0) {
         fprintf(stderr, "Failed to restore terminal attributes: %s\n", strerror(errno));
@@ -54,6 +48,16 @@ void shutdown(int exitStatus) {
     }
 
     exit(exitStatus);
+}
+
+
+/* redirect file to target file descriptor */
+void fdRedirect(int newFD, int targetFD) {
+    extClose(targetFD);
+    if (dup2(newFD, targetFD) < 0) {
+        fprintf(stderr, "Dup2 failed: %s", strerror(errno));
+        shutdown(ERROR);
+    }
 }
 
 /* basic write error checking */
@@ -100,13 +104,13 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
 
         switch (*c) {
             case 4:      /* ^D */
-                //extWrite(fd, "^D", 2);
+                extWrite(fd, "^D", 2);
                 if (shellFlg) {
                     extClose(termToShell[WR]); /* both ends closed sends EOF to shell */
                 } else shutdown(SUCCESS);
                 break;
             case 3:      /* ^C */
-                //extWrite(fd, "^C", 2);
+                extWrite(fd, "^C", 2);
                 if (shellFlg) {
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
@@ -175,7 +179,6 @@ int main(int argc, char *argv[]) {
         restoreTermAttributes();
         exit(ERROR);
     }
-
 
     /* Multiprocess mode */
     if (shellFlg) {
@@ -246,7 +249,7 @@ int main(int argc, char *argv[]) {
         } else if (cpid == -1){  /* failed */
             fprintf(stderr, "Fork failed: %s", strerror(errno));
             restoreTermAttributes();
-            exit(ERROR);
+            exit(ERROR); /* normal exit bc waitpid in shutdown will spiral */
         }
     } else {
         /* Default mode */
