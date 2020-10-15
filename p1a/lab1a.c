@@ -25,24 +25,6 @@ int shellToTerm[2];         /* pipe shell ---> term */
 int cpid;                   /* child process ID     */
 struct termios restoreAttr; /* hold initial terminal attributes */
 
-
-
-/* basic write error checking */
-void extWrite(int fd, char *c, int numChars) {
-    if (write(fd, c, numChars) < 0) {
-        fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
-        shutdown(ERROR);
-    }
-}
-
-/* close with error handling */
-void extClose(int fd) {
-    if (close(fd) < 0) {
-        fprintf(stderr, "Failed to close file descriptor: %s", strerror(errno));
-        shutdown(ERROR);
-    }
-}
-
 /* redirect file to target file descriptor */
 void fdRedirect(int newFD, int targetFD) {
     close(targetFD);
@@ -72,6 +54,22 @@ void shutdown(int exitStatus) {
     }
 
     exit(exitStatus);
+}
+
+/* basic write error checking */
+void extWrite(int fd, char *c, int numChars) {
+    if (write(fd, c, numChars) < 0) {
+        fprintf(stderr, "Failed to write to stdout: %s", strerror(errno));
+        shutdown(ERROR);
+    }
+}
+
+/* close with error handling */
+void extClose(int fd) {
+    if (close(fd) < 0) {
+        fprintf(stderr, "Failed to close file descriptor: %s", strerror(errno));
+        shutdown(ERROR);
+    }
 }
 
 /* sig handler for SIGPIPE */
