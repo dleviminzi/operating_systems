@@ -96,7 +96,7 @@ int readBuff(int fd, char *buff) {
 }
 
 /* write buffer to channel specified in file descriptor */
-void processBuff(int fd, char *buff, int lenBytes, int isShell) {
+void processBuff(int fd, char *buff, int lenBytes, int toShell) {
     int index = 0;
 
     while (index < lenBytes) {
@@ -104,24 +104,28 @@ void processBuff(int fd, char *buff, int lenBytes, int isShell) {
 
         switch (*c) {
             case 4:      /* ^D */
-                extWrite(fd, "^D", 2);
+                /* terminal echos text form of EOF, but not to shell */
+                if (!toShell) extWrite(fd, "^D", 2); 
                 if (shellFlg) {
                     extClose(termToShell[WR]); /* both ends closed sends EOF to shell */
                 } else shutdown(SUCCESS);
                 break;
             case 3:      /* ^C */
-                extWrite(fd, "^C", 2);
+                /* terminal echos text form of EOT, but not to shell */
                 if (shellFlg) {
+                    if (!toShell) extWrite(fd, "^C", 2);
                     if (kill(cpid, SIGINT) < 0) {
                         fprintf(stderr, "Kill failed: %s", strerror(errno));
                         restoreTermAttributes();
                         shutdown(ERROR);
                     }
+                } else {
+                    extWrite(fd, c, 1);
                 }
                 break;
             case '\r':
             case '\n':
-                if (isShell) {
+                if (toShell) {
                     extWrite(fd, "\n", 1);
                 } else {
                     extWrite(fd, "\r\n", 2);
