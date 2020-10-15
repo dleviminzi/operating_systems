@@ -50,16 +50,6 @@ void shutdown(int exitStatus) {
     exit(exitStatus);
 }
 
-
-/* redirect file to target file descriptor */
-void fdRedirect(int newFD, int targetFD) {
-    extClose(targetFD);
-    if (dup2(newFD, targetFD) < 0) {
-        fprintf(stderr, "Dup2 failed: %s", strerror(errno));
-        shutdown(ERROR);
-    }
-}
-
 /* basic write error checking */
 void extWrite(int fd, char *c, int numChars) {
     if (write(fd, c, numChars) < 0) {
@@ -72,6 +62,16 @@ void extWrite(int fd, char *c, int numChars) {
 void extClose(int fd) {
     if (close(fd) < 0) {
         fprintf(stderr, "Failed to close file descriptor: %s", strerror(errno));
+        shutdown(ERROR);
+    }
+}
+
+
+/* redirect file to target file descriptor */
+void fdRedirect(int newFD, int targetFD) {
+    extClose(targetFD);
+    if (dup2(newFD, targetFD) < 0) {
+        fprintf(stderr, "Dup2 failed: %s", strerror(errno));
         shutdown(ERROR);
     }
 }
