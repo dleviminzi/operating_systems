@@ -18,6 +18,10 @@
 #define SUCCESS 0 
 #define KB 0
 #define SCT 1
+#define BUFF_SIZE 256
+#define SENDING_BYTES 1
+#define RECEIVING_BYTES 2
+#define NO_LOG 0
 
 /* GLOBAL VARIABLES */
 int port;
@@ -78,25 +82,20 @@ int readBuff(int fd, char *buff) {
 void processBuff(int fd, char *buff, int lenBytes, int logType) {
     int index = 0;
 
-/*
-    if (logType == 1) {
-        char *len;
-        itoa(lenBytes, len);        // DAFUQ
-        char *msg1 = "SENT ";
-        char *msg2 = " bytes: ";
-        extWrite(fd, msg1, strlen(msg1));       
-        extWrite(fd, len, strlen(len));
-        extWrite(fd, msg2, strlen(msg2));
+    if (logFlg && logType == SENDING_BYTES) {
+        char msg[BUFF_SIZE];
+        sprintf(msg, "SENT %d bytes: ", lenBytes);
+        extWrite(logfd, msg, strlen(msg));
+        extWrite(logfd, buff, lenBytes);
+        extWrite(logfd, "\n", 1);
     } 
-    else if (logType == 2) {
-        char *len; 
-        itoa(lenBytes, len);
-        char *msg1 = "RECEIVED ";
-        char *msg2 = " bytes: ";
-        extWrite(fd, msg1, strlen(msg1));
-        extWrite(fd, len, strlen(len));
-        extWrite(fd, msg2, strlen(msg2));
-    } */
+    else if (logFlg && logType == RECEIVING_BYTES) {
+        char msg[BUFF_SIZE];
+        sprintf(msg, "RECEIVED %d bytes: ", lenBytes);
+        extWrite(logfd, msg, strlen(msg));
+        extWrite(logfd, buff, lenBytes);
+        extWrite(logfd, "\n", 1);
+    }
 
     while (index < lenBytes) {
         char *c = buff + index;
@@ -105,9 +104,11 @@ void processBuff(int fd, char *buff, int lenBytes, int logType) {
         case '\r':
         case '\n':
             if (fd == sockfd) {
-                extWrite(fd, "\n", 1);
+                /* send raw input to the socket */
+                extWrite(fd, c, 1);
             } 
             else {
+                /* echoing to the terminal */
                 extWrite(fd, "\r\n", 2);
             }
             
@@ -120,6 +121,10 @@ void processBuff(int fd, char *buff, int lenBytes, int logType) {
     }
 }
 
+void closeSCT() {
+    extClose(sockfd);
+}
+
 /* MAIN ROUTINE */
 int main(int argc, char *argv[]) {
     int opt = 0;            /* getopt vals */
@@ -130,7 +135,7 @@ int main(int argc, char *argv[]) {
     struct hostent *server;
 
     /* buffer */
-    char buff[256];
+    char buff[BUFF_SIZE];
 
     static struct option long_options[] = {
         {"port", required_argument, NULL, 'p'},     /* mandatory */
@@ -193,6 +198,9 @@ int main(int argc, char *argv[]) {
         exit(ERROR);
     }
 
+    /* shut socket on shutdown note: atexit is executed LIFO */
+    atexit(closeSCT);
+
     /* init server */
     server = gethostbyname("localhost");
     if (server == NULL) {
@@ -230,26 +238,21 @@ int main(int argc, char *argv[]) {
         }
         else if (events == 0) continue;
 
-        /* keyboard input */
+        /* keyboard input is being received */
         if (pollArr[KB].revents & POLLIN) {
             int lenBuff = readBuff(STDIN_FILENO, buff);
-            processBuff(STDOUT_FILENO, buff, lenBuff, 0);
-
-            if (logFlg) processBuff(logfd, buff, lenBuff, 1);
-
-            processBuff(sockfd, buff, lenBuff, 0);
+            processBuff(STDOUT_FILENO, buff, lenBuff, NO_LOG);
+            processBuff(sockfd, buff, lenBuff, SENDING_BYTES);
         }
-        /* socket input */
+        /* socket input is being received and must be processed */
         if (pollArr[SCT].revents & POLLIN) {
             int lenBuff = readBuff(sockfd, buff);
 
-            if (lenBuff == 0) {     /* server as shut down */
+            if (lenBuff == 0) {     /* server has shut down */
                 exit(SUCCESS);
             }
 
-            if (logFlg) processBuff(logfd, buff, lenBuff, 2);
-
-            processBuff(STDOUT_FILENO, buff, lenBuff, 0);
+            processBuff(STDOUT_FILENO, buff, lenBuff, RECEIVING_BYTES);
         }
 
         if (pollArr[SCT].revents & POLLHUP || pollArr[SCT].revents & POLLERR) {

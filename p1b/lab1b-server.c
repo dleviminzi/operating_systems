@@ -73,6 +73,7 @@ void shellLog() {
 }
 
 void closeSCT() {
+    extClose(sockfd);
     extClose(nsockfd);
 }
 
@@ -97,38 +98,40 @@ int readBuff(int fd, char *buff) {
 
 /* write buffer to channel specified in file descriptor */
 void processBuff(int fd, char *buff, int lenBytes, int toShell) {
-    int index = 0;
 
-    while (index < lenBytes) {
-        char *c = buff + index;
+    if (toShell) {
+        /* must parse character at a time to send to shell */
+        int index = 0;
 
-        switch (*c) {
-            case 4:      /* ^D */
-                extClose(servToShell[WR]); /* both ends closed sends EOF to shell */
-                break;
-            case 3:      /* ^C */
-                if (kill(cpid, SIGINT) < 0) {
-                    fprintf(stderr, "Kill failed: %s", strerror(errno));
-                    exit(ERROR);
-                }                
-                break;
-            /*
-            case '\r':
-            case '\n':
-                if (toShell) {
+        while (index < lenBytes) {
+            char *c = buff + index;
+
+            switch (*c) {
+                case 4:      
+                    /* ^D close writing end of pipe to shell */
+                    extClose(servToShell[WR]); 
+                    break;
+                case 3:      
+                    /* ^C kill the child process */
+                    if (kill(cpid, SIGINT) < 0) {
+                        fprintf(stderr, "Kill failed: %s", strerror(errno));
+                        exit(ERROR);
+                    }                
+                    break;
+                case '\r':
+                case '\n':
                     extWrite(fd, "\n", 1);
-                } 
-                else {
-                    extWrite(fd, "\r\n", 2);
-                }
-                
-                break;
-                */
-            default:
-                extWrite(fd, c, 1);
-                break;
+                    break;
+                default:
+                    extWrite(fd, c, 1);
+                    break;
+            }
+            index++;
         }
-        index++;
+    }
+    else {
+        /* sending to socket */
+        extWrite(fd, buff, lenBytes);
     }
 }
 
@@ -139,7 +142,7 @@ int main(int argc, char* argv[]) {
     char *program;          /* variable for storing shell option input */
 
     /* server variables */
-    int lenCli;
+    socklen_t lenCli;
     struct sockaddr_in serv_addr, cli_addr;
 
     /* input buffer */
@@ -206,7 +209,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Error accepting connection: %s", strerror(errno));
         exit(ERROR);
     }
-    
+
     atexit(closeSCT);   /* at exit close socket */
 
     signal(SIGPIPE, sigHandler);
