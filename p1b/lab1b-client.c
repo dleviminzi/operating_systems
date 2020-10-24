@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include "zlib.h"
 
 #define ERROR 1
 #define SUCCESS 0 
@@ -30,6 +31,9 @@ struct termios restoreAttr;
 int logfd;
 int logFlg = 0;
 int sockfd;
+int compFlg = 0;
+z_stream out_stream;
+z_stream in_stream;
 
 /* METHODS */
 
@@ -78,24 +82,27 @@ int readBuff(int fd, char *buff) {
     return lenRead;
 }
 
-/* write buffer to channel specified in file descriptor */
-void processBuff(int fd, char *buff, int lenBytes, int logType) {
-    int index = 0;
+/* logging method */
+void logBuff(int direction, char *buff, int lenBytes) {
+    char msg[BUFF_SIZE];
 
-    if (logFlg && logType == SENDING_BYTES) {
-        char msg[BUFF_SIZE];
+    if (direction == SENDING_BYTES) {
         sprintf(msg, "SENT %d bytes: ", lenBytes);
         extWrite(logfd, msg, strlen(msg));
         extWrite(logfd, buff, lenBytes);
         extWrite(logfd, "\n", 1);
-    } 
-    else if (logFlg && logType == RECEIVING_BYTES) {
-        char msg[BUFF_SIZE];
+    }
+    else {
         sprintf(msg, "RECEIVED %d bytes: ", lenBytes);
         extWrite(logfd, msg, strlen(msg));
         extWrite(logfd, buff, lenBytes);
         extWrite(logfd, "\n", 1);
     }
+}
+
+/* write buffer to channel specified in file descriptor */
+void processBuff(int fd, char *buff, int lenBytes) {
+    int index = 0;
 
     while (index < lenBytes) {
         char *c = buff + index;
@@ -121,8 +128,24 @@ void processBuff(int fd, char *buff, int lenBytes, int logType) {
     }
 }
 
+/* close socket on exit */
 void closeSCT() {
     extClose(sockfd);
+}
+
+/* close log on exit */
+void closeLog() {
+    extClose(logfd);
+}
+
+/* call deflate end */
+void dfE() {
+    deflateEnd(&out_stream);
+}
+
+/* call inflate end */
+void ifE() {
+    inflateEnd(&in_stream);
 }
 
 /* MAIN ROUTINE */
@@ -136,10 +159,13 @@ int main(int argc, char *argv[]) {
 
     /* buffer */
     char buff[BUFF_SIZE];
+    char cBuffOut[BUFF_SIZE];
+    char cBuffIn[BUFF_SIZE];
 
     static struct option long_options[] = {
         {"port", required_argument, NULL, 'p'},     /* mandatory */
         {"log", optional_argument, NULL, 'l'},
+        {"compress", no_argument, NULL, 'c'},
         {0,0,0,0}
     };
 
@@ -155,8 +181,11 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Failed to open file for logging: %s", strerror(errno));
                     exit(ERROR);
                 }
-                /* at exit close logging file ??? */
+                atexit(closeLog);
                 logFlg = 1;
+                break;
+            case 'c':
+                compFlg = 1;
                 break;
             case '?':
                 fprintf(stderr, "Unknown option. Permitted option: shell");
@@ -191,6 +220,32 @@ int main(int argc, char *argv[]) {
     /* return to regular terminal attributes when exiting */
     atexit(restoreTermAttributes);
 
+    if (compFlg) {
+        /* out stream */
+        out_stream.zalloc = Z_NULL;
+        out_stream.zfree = Z_NULL;
+        out_stream.opaque = Z_NULL;
+
+        if (deflateInit(&out_stream, Z_DEFAULT_COMPRESSION) < 0) {
+            fprintf(stderr, "Error creating compression stream: %s", strerror(errno));
+            exit(ERROR);
+        }
+
+        atexit(dfE);
+
+        /* in stream */
+        in_stream.zalloc = Z_NULL;
+        in_stream.zfree = Z_NULL;
+        in_stream.opaque = Z_NULL;
+
+        if (inflateInit(&in_stream) < 0) {
+            fprintf(stderr, "Failed to create decompression stream: %s", strerror(errno));
+            exit(ERROR);
+        }
+
+        atexit(ifE);
+    }
+
     /* init socket */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -215,7 +270,7 @@ int main(int argc, char *argv[]) {
     serv_addr.sin_port = htons(port);
 
     /* connecting... */
-    if (connect(sockfd, &serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
         fprintf(stderr, "Error connecting socket: %s", strerror(errno));
         exit(ERROR);
     }
@@ -240,19 +295,69 @@ int main(int argc, char *argv[]) {
 
         /* keyboard input is being received */
         if (pollArr[KB].revents & POLLIN) {
-            int lenBuff = readBuff(STDIN_FILENO, buff);
-            processBuff(STDOUT_FILENO, buff, lenBuff, NO_LOG);
-            processBuff(sockfd, buff, lenBuff, SENDING_BYTES);
+
+            /* compress data if enabled */
+            if (compFlg) {
+                int lenBuff = readBuff(STDIN_FILENO, buff);
+               
+                out_stream.avail_in = lenBuff;
+                out_stream.next_in = (Bytef *) buff;
+                out_stream.avail_out = BUFF_SIZE;
+                out_stream.next_out = (Bytef *) cBuffOut;
+                deflate(&out_stream, Z_SYNC_FLUSH);
+
+                /* number of bytes occupied by compressed data */
+                int lenComp = BUFF_SIZE - out_stream.avail_out;
+
+                if (logFlg) logBuff(SENDING_BYTES, cBuffOut, lenComp);
+                
+                processBuff(sockfd, cBuffOut, lenComp);
+                processBuff(STDOUT_FILENO, buff, lenBuff);
+            }
+            else {
+                int lenBuff = readBuff(STDIN_FILENO, buff);
+
+                if (logFlg) logBuff(SENDING_BYTES, buff, lenBuff);
+
+                processBuff(sockfd, buff, lenBuff);
+                processBuff(STDOUT_FILENO, buff, lenBuff);
+            }
+
+            /* output to terminal remains normal */
         }
         /* socket input is being received and must be processed */
         if (pollArr[SCT].revents & POLLIN) {
-            int lenBuff = readBuff(sockfd, buff);
 
-            if (lenBuff == 0) {     /* server has shut down */
-                exit(SUCCESS);
+            /* decompress data if compression is enabled */
+            if (compFlg) { 
+                int lenBuff = readBuff(sockfd, buff);
+
+                if (logFlg) logBuff(RECEIVING_BYTES, buff, lenBuff);
+
+                if (lenBuff == 0) {     /* server has shut down */
+                    exit(SUCCESS);
+                }
+ 
+                in_stream.avail_in = lenBuff;
+                in_stream.next_in = (Bytef *) buff;
+                in_stream.avail_out = BUFF_SIZE;
+                in_stream.next_out = (Bytef *) cBuffIn;
+                inflate(&in_stream, Z_SYNC_FLUSH);
+
+                /* number of bytes occupied by decompressed data */
+                int lenComp = BUFF_SIZE - in_stream.avail_out;
+
+                processBuff(STDOUT_FILENO, cBuffIn, lenComp); 
             }
+            else {
+                int lenBuff = readBuff(sockfd, buff);
 
-            processBuff(STDOUT_FILENO, buff, lenBuff, RECEIVING_BYTES);
+                if (lenBuff == 0) {     /* server has shut down */
+                    exit(SUCCESS);
+                }
+                if (logFlg) logBuff(RECEIVING_BYTES, buff, lenBuff);
+                processBuff(STDOUT_FILENO, buff, lenBuff);
+            }
         }
 
         if (pollArr[SCT].revents & POLLHUP || pollArr[SCT].revents & POLLERR) {
