@@ -13,8 +13,11 @@
 #define BILLION 1E9
 
 /* provided add function */
+int opt_yield = 0;
 void add(long long *pointer, long long value) {
     long long sum = *pointer + value;
+    if (opt_yield)
+        sched_yield();
     *pointer = sum;
 }
 
@@ -50,6 +53,7 @@ int main(int argc, char *argv[]) {
     static struct option long_options[] = {
         {"threads", optional_argument, NULL, 't'},
         {"iterations", optional_argument, NULL, 'i'},
+        {"yield", optional_argument, NULL, 'y'},
         {0,0,0,0}
     };    
 
@@ -61,6 +65,9 @@ int main(int argc, char *argv[]) {
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
 
+    /* flag for syncing */
+    int syncing = 0;
+
     /* Option processing */
     while ((opt = getopt_long(argc, argv, ":p:l", long_options, &option_index)) != -1) {
         switch(opt) {
@@ -69,6 +76,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'i':
                 numIterations = atoi(optarg);
+                break;
+            case 'y':
+                opt_yield = 1;
                 break;
             case '?':
                 fprintf(stderr, "Unknown option. Permitted option: shell");
@@ -122,8 +132,21 @@ int main(int argc, char *argv[]) {
     long long runTime = (endTime.tv_nsec - startTime.tv_nsec) + 
                       (endTime.tv_sec - startTime.tv_sec) * BILLION;
 
-    fprintf(stdout, "add-none, %d, %d, %lld, %lld, %lld, %lld\n", numThreads, 
-            numIterations, totalOp, runTime, runTime/totalOp, counter);
+
+    /* fucking disgusting output string stuff */
+    char *yld;
+    if (opt_yield) yld = "-yield";
+    else yld = '-';
+
+    char *snc;
+    if (syncing && yld) snc = "-m";
+    else if (!syncing && yld) snc = "-none";
+    else if (syncing && !yld) snc = 'm';
+    else snc = "none"; 
+
+    fprintf(stdout, "add%s%s, %d, %d, %lld, %lld, %lld, %lld\n", yld, snc,
+            numThreads, numIterations, totalOp, runTime, runTime/totalOp, 
+            counter);
 
     exit(SUCCESS);
 }
