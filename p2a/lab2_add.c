@@ -12,13 +12,67 @@
 #define SUCCESS 0
 #define BILLION 1E9
 
+/* star of the show: counter variable to be updated by threads */
+long long counter = 0;
+
+
+/* mutex lock parameters */
+pthread_mutex_t mutexSum;
+int mutexFlg = 0;
+
+/* spin lock */
+int spinlock = 0;
+int spinFlg = 0;
+
+/* compare and swap parameters (just flg) */
+int compswapFlg = 0;
+
 /* provided add function */
 int opt_yield = 0;
-void add(long long *pointer, long long value) {
+void add(long long *pointer, long long value) { 
     long long sum = *pointer + value;
+
     if (opt_yield)
         sched_yield();
+
     *pointer = sum;
+}
+
+/* mutex modified add */
+void mAdd(long long *pointer, long long value) {
+    pthread_mutex_lock(&mutexSum);
+    
+    long long sum = *pointer + value;
+
+    if (opt_yield) sched_yield();
+
+    *pointer = sum;
+
+    pthread_mutex_unlock(&mutexSum);
+}
+
+/* spin lock modified add */
+void sAdd(long long *pointer, long long value) {
+    while (__sync_lock_test_and_set(&spinlock, 1));
+    
+    long long sum = *pointer + value;
+
+    if (opt_yield) sched_yield();
+
+    *pointer = sum; 
+
+    __sync_lock_release(&spinlock);
+}
+
+/* compare and swap modified add */
+void cAdd(long long *pointer, long long value) {
+    long long old; 
+
+    do {
+        old = counter;
+
+        if (opt_yield) sched_yield(); 
+    } while (__sync_val_compare_and_swap(pointer, old, old + value) != old);
 }
 
 /* structure to hold arguments to pass to thread function */
@@ -37,8 +91,22 @@ void *threadAdd(void *threadArgs) {
 
     int i; 
     for (i = 0; i < iterations; ++i) { 
-        add(ptr, 1);
-        add(ptr, -1);
+        if (mutexFlg) {
+            mAdd(ptr, 1);
+            mAdd(ptr, -1);
+        } 
+        else if (spinFlg) {
+            sAdd(ptr, 1);
+            sAdd(ptr, -1);
+        }
+        else if (compswapFlg) {
+            cAdd(ptr, 1);
+            cAdd(ptr, -1);
+        } 
+        else { 
+            add(ptr, 1);
+            add(ptr, -1);
+        }
     }
 
     pthread_exit(NULL);
@@ -53,14 +121,14 @@ int main(int argc, char *argv[]) {
     static struct option long_options[] = {
         {"threads", optional_argument, NULL, 't'},
         {"iterations", optional_argument, NULL, 'i'},
-        {"yield", optional_argument, NULL, 'y'},
+        {"yield", no_argument, NULL, 'y'},
+        {"sync", optional_argument, NULL, 's'},
         {0,0,0,0}
     };    
 
-    /* default thread/iteration/counter values */
+    /* default thread/iteration values*/
     int numThreads = 1;
     int numIterations = 1;
-    long long counter = 0;
 
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
@@ -80,6 +148,24 @@ int main(int argc, char *argv[]) {
             case 'y':
                 opt_yield = 1;
                 break;
+            case 's':
+                syncing = 1;
+
+                switch(optarg[0]) {
+                    case 'm':
+                        mutexFlg = 1;
+                        break;
+                    case 's':
+                        spinFlg = 1;
+                        break;
+                    case 'c':
+                        compswapFlg = 1;
+                        break;
+                    default:
+                        fprintf(stderr, "Sync only allows s, m, c arguments");
+                        exit(ERROR1);
+                }
+                break; 
             case '?':
                 fprintf(stderr, "Unknown option. Permitted option: shell");
                 exit(ERROR1);
@@ -87,6 +173,10 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Invalid argument provided for option."); 
                 exit(ERROR1);
         }
+    }
+
+    if (mutexFlg) {
+        pthread_mutex_init(&mutexSum, NULL);
     }
 
     /* get starting time */
@@ -127,6 +217,10 @@ int main(int argc, char *argv[]) {
    /* get ending time */
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime); 
 
+    if (mutexFlg) {
+        pthread_mutex_destroy(&mutexSum);
+    } 
+
     long long totalOp = numThreads * numIterations * 2;
 
     long long runTime = (endTime.tv_nsec - startTime.tv_nsec) + 
@@ -134,19 +228,16 @@ int main(int argc, char *argv[]) {
 
 
     /* fucking disgusting output string stuff */
-    char *yld;
-    if (opt_yield) yld = "-yield";
-    else yld = '-';
+    char title[30] = "add";
 
-    char *snc;
-    if (syncing && yld) snc = "-m";
-    else if (!syncing && yld) snc = "-none";
-    else if (syncing && !yld) snc = 'm';
-    else snc = "none"; 
+    if (opt_yield) strcat(title, "-yield");
+    if (mutexFlg) strcat(title, "-m");
+    else if (spinFlg) strcat(title, "-s");
+    else if (compswapFlg) strcat(title, "-c");
+    else strcat(title, "-none");
+    
+    fprintf(stdout, "%s,%d,%d,%lld,%lld,%lld,%lld\n", title, numThreads, 
+            numIterations, totalOp, runTime, runTime/totalOp, counter);
 
-    fprintf(stdout, "add%s%s, %d, %d, %lld, %lld, %lld, %lld\n", yld, snc,
-            numThreads, numIterations, totalOp, runTime, runTime/totalOp, 
-            counter);
-
-    exit(SUCCESS);
+    pthread_exit(SUCCESS);
 }
