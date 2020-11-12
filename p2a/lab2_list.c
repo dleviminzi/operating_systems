@@ -140,8 +140,6 @@ int main(int argc, char *argv[]) {
                 } 
                 break;
             case 's':
-                syncing = 1;
-
                 switch(optarg[0]) {
                     case 'm':
                         mutexFlg = 1;
