@@ -9,7 +9,10 @@
 #define SUCCESS 0
 
 void SortedList_insert(SortedList_t *list, SortedListElement_t *element) {
-    if ((list == NULL) || (element == NULL)) return;
+    /* avoid meddling with list while we look at it */
+    if (opt_yield & INSERT_YIELD) sched_yield();
+    
+    if ((list == NULL)) return;
 
     SortedListElement_t *curr = list;
 
@@ -19,8 +22,7 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element) {
         curr = curr->next;
     }
 
-    /* avoid meddling with list while it is being modified */
-    if (opt_yield & INSERT_YIELD) sched_yield();
+
 
     curr->prev->next = element;
     element->prev = curr->prev;
@@ -64,12 +66,12 @@ int SortedList_length(SortedList_t *list) {
 
     int count = 0;
 
-    SortedListElement_t *curr = list->next;
+    SortedListElement_t *curr = list;
     
     /* don't want to mess with incrementation concurrently */
     if (opt_yield & LOOKUP_YIELD) sched_yield();
     
-    while (curr != list) {
+    while (curr->next != list) {
         if (curr->next->prev != curr || curr->prev->next != curr) return -1;
 
         curr = curr->next;
