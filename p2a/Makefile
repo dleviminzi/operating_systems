@@ -618,5 +618,5 @@ tests: default
 graphs: clean tests
 	gnuplot lab2_add.gp
 	gnuplot lab2_list.gp
-dist: default 
+dist: graphs 
 	tar -czvf lab2a-004923946.tar.gz README Makefile lab2_add.c lab2_list.c SortedList.h SortedList.c *.gp *.png *.csv 
