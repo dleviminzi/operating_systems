@@ -34,6 +34,18 @@ struct threadArgs {
     int numToInsert;
 };
 
+void lock() {
+    if (mutexFlg) pthread_mutex_lock(&mutexLock);
+    else if (spinFlg) {
+        while (__sync_lock_test_and_set(&spinlock, 1));
+    }
+}
+
+void unlock() {
+    if (mutexFlg) pthread_mutex_unlock(&mutexLock);
+    else if (spinFlg) __sync_lock_release(&spinlock);
+}
+
 /* function to be called when threading */
 void *threadCall(void *threadArgs) {
     /* gathering arguments passed to thread  */
@@ -44,18 +56,17 @@ void *threadCall(void *threadArgs) {
     SortedListElement_t *startElement = currArgs->startElement;
     int numToInsert = currArgs->numToInsert;
 
-    if (mutexFlg) pthread_mutex_lock(&mutexLock);
-    else if (spinFlg) {
-        while (__sync_lock_test_and_set(&spinlock, 1));
-    }
-
     /* inserting elements into the list */
     int i;
     for (i = 0; i < numToInsert; ++i) {
+        lock();
         SortedList_insert(list, (SortedListElement_t *) startElement+i);
+        unlock();
     }
     /* check size of list */
+    lock();
     int length = SortedList_length(list);
+    unlock();
     if (length < numToInsert) {
         fprintf(stderr, "Insertion of elements failed.\n");
         exit(ERROR2);
@@ -64,6 +75,7 @@ void *threadCall(void *threadArgs) {
     /* delete elements that were added to list */
     for (i = 0; i < numToInsert; ++i) {
         SortedListElement_t *element;
+        lock();
         if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
             fprintf(stderr, "Could not find element in list.\n");
             exit(ERROR2);
@@ -73,10 +85,8 @@ void *threadCall(void *threadArgs) {
             fprintf(stderr, "Could not delete element from list.\n");
             exit(ERROR2);
         }
+        unlock();
     } 
-
-    if (mutexFlg) pthread_mutex_unlock(&mutexLock);
-    else if (spinFlg) __sync_lock_release(&spinlock);
 
     pthread_exit(NULL);
 }
