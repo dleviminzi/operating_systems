@@ -14,6 +14,10 @@
 #define SUCCESS 0
 #define BILLION 1E9
 
+
+SortedList_t *list;
+SortedListElement_t *elements;
+
 int opt_yield = 0;
 
 /* mutex lock parameters */
@@ -30,7 +34,7 @@ int compswapFlg = 0;
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
     SortedListElement_t *startElement;
-    SortedList_t *list;
+    //SortedList_t *list;
     int numToInsert;
 };
 
@@ -52,7 +56,7 @@ void *threadCall(void *threadArgs) {
     struct threadArgs *currArgs;
     currArgs = (struct threadArgs *) threadArgs;
 
-    SortedList_t *list = currArgs->list;
+    //SortedList_t *list = currArgs->list;
     SortedListElement_t *startElement = currArgs->startElement;
     int numToInsert = currArgs->numToInsert;
 
@@ -67,8 +71,8 @@ void *threadCall(void *threadArgs) {
     lock();
     int length = SortedList_length(list);
     unlock();
-    if (length < numToInsert) {
-        fprintf(stderr, "Insertion of elements failed.\n");
+    if (length < 0) {
+        fprintf(stderr, "Failed to get length of list: corruption.\n");
         exit(ERROR2);
     }
         
@@ -77,12 +81,12 @@ void *threadCall(void *threadArgs) {
         SortedListElement_t *element;
         lock();
         if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
-            fprintf(stderr, "Could not find element in list.\n");
+            fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
         }
 
         if (SortedList_delete(element) != 0) {
-            fprintf(stderr, "Could not delete element from list.\n");
+            fprintf(stderr, "Could not delete element from list: corruption.\n");
             exit(ERROR2);
         }
         unlock();
@@ -177,14 +181,12 @@ int main(int argc, char *argv[]) {
 
     int numElements = numIterations * numThreads;
 
-    SortedList_t *list;
     list = (SortedList_t *) malloc(sizeof(SortedList_t)); 
     list->next = list;
     list->prev = list;
     list->key = NULL;
 
-    /* should allocate dynamically */
-    SortedListElement_t *elements;
+
 
     elements = (SortedListElement_t*) malloc(sizeof(SortedListElement_t) * numElements); 
 
@@ -205,7 +207,7 @@ int main(int argc, char *argv[]) {
             key[--length] = options[index];
         }
 
-        (elements + i)->key = key;
+        elements[i].key = key;
     }
 
     /* get starting time */
