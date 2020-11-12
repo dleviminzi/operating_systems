@@ -2,8 +2,8 @@ default:
 	gcc -g -lpthread lab2_add.c -Wall -Wextra -o lab2_add
 	gcc -g -lpthread lab2_list.c SortedList.c -Wall -Wextra -o lab2_list
 clean:
-	rm -f lab2_add lab2_list *.png *.csv *.tar.gz
-tests: default
+	rm -rf *tar* lab2_list lab2_add *.o *.dSYM
+tests: clean default
 	touch lab2_add.csv
 
 	./lab2_add --threads=1  --iterations=10 >> lab2_add.csv
@@ -614,8 +614,8 @@ tests: default
 	-./lab2_list --threads=32 --iterations=100 --sync=s >> lab2_list.csv 
 	-./lab2_list --threads=32 --iterations=1000 --sync=s >> lab2_list.csv 
 
-graphs: clean tests
+graphs: tests
 	gnuplot lab2_add.gp
 	gnuplot lab2_list.gp
-dist: graphs 
+dist: graphs lab2_add.c lab2_list.c Makefile README SortedList.c SortedList.h
 	tar -czvf lab2a-004923946.tar.gz README Makefile lab2_add.c lab2_list.c SortedList.h SortedList.c *.gp *.png *.csv 
