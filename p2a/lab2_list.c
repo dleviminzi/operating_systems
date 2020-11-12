@@ -56,14 +56,8 @@ void unlock() {
 }
 
 /* function to be called when threading */
-void *threadCall(void *threadArgs) {
-    /* gathering arguments passed to thread  */
-    struct threadArgs *currArgs;
-    currArgs = (struct threadArgs *) threadArgs;
-
-    int threadNum = currArgs->threadNum;
-    //int numElements = currArgs->numElements;
-    //int numThreads = currArgs->numThreads;
+void *threadCall(void *tNum) {
+    int threadNum = *((int *) tNum);
 
     /* inserting elements into the list */
     int i;
@@ -206,6 +200,7 @@ int main(int argc, char *argv[]) {
 
     /* initializing array of threads and setting attributes */
     pthread_t threads[numThreads];
+    int threadNum[numThreads];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -215,12 +210,9 @@ int main(int argc, char *argv[]) {
 
     for (t = 0; t < numThreads; t++) {
         /* argument to be passed with function jump point */
-        struct threadArgs tArgs;
-        tArgs.threadNum = t;
-        tArgs.numElements = numElements;
-        tArgs.numThreads = numThreads;
+        threadNum[t] = t;
 
-        if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
+        if ((rc = pthread_create(&threads[t], NULL, threadCall, &threadNum[t])) < 0) {
             fprintf(stderr, "Thread creation failed with error code: %d\n", rc);
             exit(ERROR1);
         }
