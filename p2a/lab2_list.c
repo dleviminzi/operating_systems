@@ -33,7 +33,7 @@ int compswapFlg = 0;
 
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
-    SortedListElement_t *startElement;
+    int startElement;
     //SortedList_t *list;
     int numToInsert;
 };
@@ -57,14 +57,14 @@ void *threadCall(void *threadArgs) {
     currArgs = (struct threadArgs *) threadArgs;
 
     //SortedList_t *list = currArgs->list;
-    SortedListElement_t *startElement = currArgs->startElement;
+    int startElement = currArgs->startElement;
     int numToInsert = currArgs->numToInsert;
 
     /* inserting elements into the list */
     int i;
-    for (i = 0; i < numToInsert; ++i) {
+    for (i = startElement; i < numToInsert+startElement; ++i) {
         lock();
-        SortedList_insert(list, (SortedListElement_t *) startElement+i);
+        SortedList_insert(list, &elements[i]);
         unlock();
     }
     /* check size of list */
@@ -78,9 +78,9 @@ void *threadCall(void *threadArgs) {
         
     lock();
     /* delete elements that were added to list */
-    for (i = 0; i < numToInsert; ++i) {
+    for (i = startElement; i < numToInsert+startElement; ++i) {
         SortedListElement_t *element;
-        if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
+        if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
             fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
         }
@@ -121,7 +121,6 @@ int main(int argc, char *argv[]) {
     /* default thread/iteration values*/
     int numThreads = 1;
     int numIterations = 1;
-    int elementsPerThread = 1;
 
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
@@ -214,8 +213,8 @@ int main(int argc, char *argv[]) {
     for (t = 0; t < numThreads; t++) {
         /* argument to be passed with function jump point */
         struct threadArgs tArgs;
-        tArgs.numToInsert = elementsPerThread;
-        tArgs.startElement = elements + t*elementsPerThread;
+        tArgs.numToInsert = numIterations;
+        tArgs.startElement = t*numIterations;
         //tArgs.list = list;
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
