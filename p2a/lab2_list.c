@@ -33,9 +33,10 @@ int compswapFlg = 0;
 
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
-    SortedListElement_t *startElement;
-    //SortedList_t *list;
+    int threadNum;
     int numToInsert;
+    int numThreads;
+    int numElements;
 };
 
 void lock() {
@@ -57,14 +58,17 @@ void *threadCall(void *threadArgs) {
     currArgs = (struct threadArgs *) threadArgs;
 
     //SortedList_t *list = currArgs->list;
-    SortedListElement_t *startElement = currArgs->startElement;
+    //SortedListElement_t *startElement = currArgs->startElement;
+    int threadNum = currArgs->threadNum;
     int numToInsert = currArgs->numToInsert;
+    int numElements = currArgs->numElements;
+    int numThreads = currArgs->numThreads;
 
     /* inserting elements into the list */
     int i;
-    for (i = 0; i < numToInsert; ++i) {
+    for (i = threadNum; i < numElements; i += numThreads) {
         lock();
-        SortedList_insert(list, (SortedListElement_t *) startElement+i);
+        SortedList_insert(list, &elements[i]);
         unlock();
     }
     /* check size of list */
@@ -76,21 +80,22 @@ void *threadCall(void *threadArgs) {
         exit(ERROR2);
     }
         
-    lock();
     /* delete elements that were added to list */
-    for (i = 0; i < numToInsert; ++i) {
+    for (i = threadNum; i < numElements; i += numThreads) {
         SortedListElement_t *element;
-        if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
+        lock();
+        if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
             fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
         }
-
+        unlock();
+        lock();
         if (SortedList_delete(element) != 0) {
             fprintf(stderr, "Could not delete element from list: corruption.\n");
             exit(ERROR2);
         }
+        unlock();
     } 
-    unlock();
 
     pthread_exit(NULL);
 }
@@ -203,9 +208,9 @@ int main(int argc, char *argv[]) {
 
     /* initializing array of threads and setting attributes */
     pthread_t threads[numThreads];
-    pthread_attr_t attr;
+    /*pthread_attr_t attr;
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);*/
 
     /* creating threads and sending em off to add stuff */  
     int rc, t;
@@ -214,8 +219,9 @@ int main(int argc, char *argv[]) {
         /* argument to be passed with function jump point */
         struct threadArgs tArgs;
         tArgs.numToInsert = numIterations;
-        tArgs.startElement = elements + t*numIterations;
-        //tArgs.list = list;
+        tArgs.threadNum = t;
+        tArgs.numElements = numElements;
+        tArgs.numThreads = numThreads;
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
             fprintf(stderr, "Thread creation failed with error code: %d\n", rc);
@@ -224,7 +230,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* freeing attrribute and wiating for the other threads */
-    pthread_attr_destroy(&attr);
+    //pthread_attr_destroy(&attr);
 
     for (t = 0; t < numThreads; ++t) {
         if ((rc = pthread_join(threads[t], NULL))) {
