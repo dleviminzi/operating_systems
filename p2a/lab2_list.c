@@ -33,7 +33,7 @@ int compswapFlg = 0;
 
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
-    int startElement;
+    SortedListElement_t *startElement;
     //SortedList_t *list;
     int numToInsert;
 };
@@ -57,14 +57,14 @@ void *threadCall(void *threadArgs) {
     currArgs = (struct threadArgs *) threadArgs;
 
     //SortedList_t *list = currArgs->list;
-    int startElement = currArgs->startElement;
+    SortedListElement_t *startElement = currArgs->startElement;
     int numToInsert = currArgs->numToInsert;
 
     /* inserting elements into the list */
     int i;
-    for (i = startElement; i < numToInsert+startElement; ++i) {
+    for (i = 0; i < numToInsert; ++i) {
         lock();
-        SortedList_insert(list, &elements[i]);
+        SortedList_insert(list, (SortedListElement_t *) startElement+i);
         unlock();
     }
     /* check size of list */
@@ -78,9 +78,9 @@ void *threadCall(void *threadArgs) {
         
     lock();
     /* delete elements that were added to list */
-    for (i = startElement; i < numToInsert+startElement; ++i) {
+    for (i = 0; i < numToInsert; ++i) {
         SortedListElement_t *element;
-        if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
+        if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
             fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
         }
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
         /* argument to be passed with function jump point */
         struct threadArgs tArgs;
         tArgs.numToInsert = numIterations;
-        tArgs.startElement = t*numIterations;
+        tArgs.startElement = elements + t*numThreads;
         //tArgs.list = list;
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
