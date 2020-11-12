@@ -76,10 +76,10 @@ void *threadCall(void *threadArgs) {
         exit(ERROR2);
     }
         
+    lock();
     /* delete elements that were added to list */
     for (i = 0; i < numToInsert; ++i) {
         SortedListElement_t *element;
-        lock();
         if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
             fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
@@ -89,8 +89,8 @@ void *threadCall(void *threadArgs) {
             fprintf(stderr, "Could not delete element from list: corruption.\n");
             exit(ERROR2);
         }
-        unlock();
     } 
+    unlock();
 
     pthread_exit(NULL);
 }
