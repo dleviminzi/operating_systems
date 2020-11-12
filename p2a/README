@@ -48,3 +48,39 @@ So the time spent on thread creation is a smaller percentage of the total time.
 
 If we keep increasing the number of iterations we should reach a floor of sorts
 eventually. That floor should be the actual cost. 
+
+**QUESTION 2.1.4 - costs of serialization:**
+
+**Why do all of the options perform similarly for low numbers of threads?**
+
+There is less contention for the locks because the lower number of threads. Thus,
+time is saved that is wasted for larger numbers of threads. This also means that 
+performance boosts from implementation are less noticeable because it is all 
+relatively fast anyway.
+
+**Why do the three protected operations slow down as the number of threads rises?**
+
+As we introduce more threads, there is more contention over the locks. Because there
+are many threads, the overhead from trying to acquire the lock becomes significant
+enough to actually slow things down.
+
+**QUESTION 2.2.1 - scalability of Mutex**
+
+**Compare the variation in time per mutex-protected operation vs the number of threads in Part-1 (adds) and Part-2 (sorted lists). Comment on the general shapes of the curves, and explain why they have this shape.Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.**
+
+For sorted lists the the operation time is much more expensive because we are not simply 
+iterating back forth an integer. The operations performed on the linked list are much 
+more expensive. Consequently the chances of trying to acertain a lock while it is already
+held is higher because the time it will be held for is greater. This analysis is supported 
+by the more exponential seeming growth for the graph of the sorted list. The addition line 
+is much more straight.
+
+**QUESTION 2.2.2 - scalability of spin locks**
+
+**Compare the variation in time per protected operation vs the number of threads for list operations protected by Mutex vs Spin locks. Comment on the general shapes of the curves, and explain why they have this shape.
+Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.**
+
+The increase in time is faster for spin locks than it is for mutex locks. This is because the mutex lock does not waste
+cycles like a spin lock. The threads are put to bed, decreasing the overhead (gimme points for rhyming). The spin locks
+simply continue to cycle, which is a waste. The above analysis is consistent with my graph as clearly the spin lock 
+is increasing at a greater rate than the mutex lock. That said, both increase in an exponential seeming bend. 

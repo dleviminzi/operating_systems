@@ -1,0 +1,50 @@
+NAME: Daniel Levi-Minzi
+EMAIL: dleviminzi@protonmail.com
+ID: 004923946
+
+
+**QUESTION 2.1.1 - causing conflicts:**
+
+**Why does it take many iterations before errors are seen?**
+
+As we increase the number of operations we are increasing the life time of each
+thread. We will have problems when it takes so long to complete all the operations
+that a new thread is fully created. When this happens, we have two active threads
+operating on the same data. 
+
+**Why does a significantly smaller number of iterations so seldom fail?**
+
+With few operations, we will likely complete them all before a new thread is 
+introduced into the fray. 
+
+**QUESTION 2.1.2 - cost of yielding:**
+
+**Why are the --yield runs so much slower?**
+
+Yield causes threads to give up CPU to other threads. Context switch is expensive 
+so runtime is hurt.
+
+**Where is the additional time going?**
+
+The time is being lost during context switches in which we enter the OS. At these
+moments, other processes and threads may get executed. Additionally, as noted
+before time is lost to context switching. 
+
+**Is it possible to get valid per-operation timings if we are using the --yield 
+option? If so, explain how. If not, explain why not.**
+
+No. It is impossible to know how long yields are taking. Both context switching 
+and alternate thread execution times can vary. 
+
+**QUESTION 2.1.3 - measurement errors:**
+
+**Why does the average cost per operation drop with increasing iterations?**
+
+The more iterations we perform, the greater the number of operations we are doing.
+The comparitive cost of creating a thread to performing all the operations shrinks.
+So the time spent on thread creation is a smaller percentage of the total time. 
+
+**If the cost per iteration is a function of the number of iterations, how do we know how many iterations to run (or what the "correct" cost is)?**
+
+If we keep increasing the number of iterations we should reach a floor of sorts
+eventually. That floor should be the actual cost. 

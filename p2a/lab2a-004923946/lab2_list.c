@@ -14,16 +14,6 @@
 #define SUCCESS 0
 #define BILLION 1E9
 
-/* list and elements */
-SortedList_t *list;
-SortedListElement_t *elements;
-
-/* default thread/iteration/element values*/
-int numThreads = 1;
-int numIterations = 1;
-int numElements = 1;
-
-/* yield option specifier */
 int opt_yield = 0;
 
 /* mutex lock parameters */
@@ -39,65 +29,58 @@ int compswapFlg = 0;
 
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
-    int threadNum;
-    int numThreads;
-    int numElements;
+    SortedListElement_t *startElement;
+    SortedList_t *list;
+    int numToInsert;
 };
 
-/* method to lock thread when needed */
-void lock() {
+/* function to be called when threading */
+void *threadCall(void *threadArgs) {
+    /* gathering arguments passed to thread  */
+    struct threadArgs *currArgs;
+    currArgs = (struct threadArgs *) threadArgs;
+
+    SortedList_t *list = currArgs->list;
+    SortedListElement_t *startElement = currArgs->startElement;
+    int numToInsert = currArgs->numToInsert;
+
     if (mutexFlg) pthread_mutex_lock(&mutexLock);
     else if (spinFlg) {
         while (__sync_lock_test_and_set(&spinlock, 1));
     }
-}
-
-/* method to unlock thread when needed */
-void unlock() {
-    if (mutexFlg) pthread_mutex_unlock(&mutexLock);
-    else if (spinFlg) __sync_lock_release(&spinlock);
-}
-
-/* function to be called when threading */
-void *threadCall(void *tNum) {
-    int threadNum = *((int *) tNum);
 
     /* inserting elements into the list */
     int i;
-    for (i = threadNum; i < numElements; i += numThreads) {
-        lock();
-        SortedList_insert(list, &elements[i]);
-        unlock();
+    for (i = 0; i < numToInsert; ++i) {
+        SortedList_insert(list, (SortedListElement_t *) startElement+i);
     }
     /* check size of list */
-    lock();
-    int length = 0;
-    length = SortedList_length(list);
-    if (length < 0) {
-        fprintf(stderr, "Failed to get length of list: corruption.\n");
+    int length = SortedList_length(list);
+    if (length < numToInsert) {
+        fprintf(stderr, "Insertion of elements failed.\n");
         exit(ERROR2);
     }
-    unlock();
         
-    /* lookup and delete elements that were added to list */
-    for (i = threadNum; i < numElements; i += numThreads) {
-        lock();
+    /* delete elements that were added to list */
+    for (i = 0; i < numToInsert; ++i) {
         SortedListElement_t *element;
-        if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
-            fprintf(stderr, "Could not find element in list: corruption.\n");
+        if ((element = SortedList_lookup(list, (startElement+i)->key)) == NULL) {
+            fprintf(stderr, "Could not find element in list.\n");
             exit(ERROR2);
         }
+
         if (SortedList_delete(element) != 0) {
-            fprintf(stderr, "Could not delete element from list: corruption.\n");
+            fprintf(stderr, "Could not delete element from list.\n");
             exit(ERROR2);
         }
-        unlock();
     } 
+
+    if (mutexFlg) pthread_mutex_unlock(&mutexLock);
+    else if (spinFlg) __sync_lock_release(&spinlock);
 
     pthread_exit(NULL);
 }
 
-/* handler for segmentation faults */
 void handler(int sig) {
     if (sig == SIGSEGV) {
         fprintf(stderr, "Segmentation fault occured");
@@ -120,6 +103,11 @@ int main(int argc, char *argv[]) {
         {"yield", required_argument, NULL, 'y'},
         {0,0,0,0}
     };    
+
+    /* default thread/iteration values*/
+    int numThreads = 1;
+    int numIterations = 1;
+    int elementsPerThread = 1;
 
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
@@ -177,26 +165,37 @@ int main(int argc, char *argv[]) {
         pthread_mutex_init(&mutexLock, NULL);
     }
 
-    numElements = numIterations * numThreads;
+    int numElements = numIterations * numThreads;
 
-    /* init list of elements */
+    SortedList_t *list;
     list = (SortedList_t *) malloc(sizeof(SortedList_t)); 
     list->next = list;
     list->prev = list;
     list->key = NULL;
 
-    /* init elements */
+    /* should allocate dynamically */
+    SortedListElement_t *elements;
+
     elements = (SortedListElement_t*) malloc(sizeof(SortedListElement_t) * numElements); 
+
+    char options[] = "0123456789!\"#$%&'()*+-/. ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     int i;
     for (i = 0; i < numElements; ++i) {
 
         /* generating random key */
-        char key[2];
-        key[0] = (char) rand()%26 + 65;
-        key[1] = '\0';
+        int length = rand()%15;
+        char key[15];
 
-        elements[i].key = key;
+        key[length] = '\0';
+
+        /* character by character key creation */
+        while (length) {
+            int index = (double) rand() / RAND_MAX * (sizeof options - 1);
+            key[--length] = options[index];
+        }
+
+        (elements + i)->key = key;
     }
 
     /* get starting time */
@@ -204,9 +203,6 @@ int main(int argc, char *argv[]) {
 
     /* initializing array of threads and setting attributes */
     pthread_t threads[numThreads];
-    int threadNum[numThreads];
-
-    /* init attributes of threads */
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
@@ -216,9 +212,12 @@ int main(int argc, char *argv[]) {
 
     for (t = 0; t < numThreads; t++) {
         /* argument to be passed with function jump point */
-        threadNum[t] = t;
+        struct threadArgs tArgs;
+        tArgs.numToInsert = elementsPerThread;
+        tArgs.startElement = elements + t*elementsPerThread;
+        tArgs.list = list;
 
-        if ((rc = pthread_create(&threads[t], NULL, threadCall, &threadNum[t])) < 0) {
+        if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
             fprintf(stderr, "Thread creation failed with error code: %d\n", rc);
             exit(ERROR1);
         }
@@ -241,7 +240,6 @@ int main(int argc, char *argv[]) {
         pthread_mutex_destroy(&mutexLock);
     } 
 
-    /* checking length of list */
     if (SortedList_length(list) != 0) {
         fprintf(stderr, "List was corrupted.");
         exit(ERROR2);
@@ -252,6 +250,10 @@ int main(int argc, char *argv[]) {
 
     char title[65] = "list-";
 
+   /* if ((opt_yield & INSERT_YIELD) && (opt_yield & LOOKUP_YIELD)) strcat(title, "il");
+    else if ((opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD)) strcat(title, "dl");
+    else if (opt_yield & INSERT_YIELD) strcat(title, "i");
+    else if (opt_yield & DELETE_YIELD) strcat(title, "i");*/
     if (opt_yield == 0) strcat(title, "none");
     else strcat(title, yldOpts);
     if (mutexFlg) strcat(title, "-m");
@@ -259,7 +261,6 @@ int main(int argc, char *argv[]) {
     else if (compswapFlg) strcat(title, "-c");
     else strcat(title, "-none");
 
-    /* calculating final operations and runtime amounts */
     int totalOp = numThreads * numIterations * 3;
 
     long long runTime = (endTime.tv_nsec - startTime.tv_nsec) + 
