@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
         /* argument to be passed with function jump point */
         struct threadArgs tArgs;
         tArgs.numToInsert = numIterations;
-        tArgs.startElement = elements + t*numThreads;
+        tArgs.startElement = elements + t*numIterations;
         //tArgs.list = list;
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
