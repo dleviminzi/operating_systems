@@ -195,7 +195,6 @@ int main(int argc, char *argv[]) {
 
     /* creating threads and sending em off to add stuff */  
     int rc, t;
-    void *status;
 
     for (t = 0; t < numThreads; t++) {
         if ((rc = pthread_create(&threads[t], NULL, threadAdd, (void *) &tArgs))) {
