@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
         struct threadArgs tArgs;
         tArgs.numToInsert = elementsPerThread;
         tArgs.startElement = elements + t*elementsPerThread;
-        tArgs.list = list;
+        //tArgs.list = list;
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs))) {
             fprintf(stderr, "Thread creation failed with error code: %d\n", rc);
