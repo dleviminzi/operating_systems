@@ -11,7 +11,7 @@
 void SortedList_insert(SortedList_t *list, SortedListElement_t *element) {
     /* avoid meddling with list while we look at it */
     if (opt_yield & INSERT_YIELD) sched_yield();
-    
+
     if ((list == NULL)) return;
 
     SortedListElement_t *curr = list;
@@ -21,8 +21,6 @@ void SortedList_insert(SortedList_t *list, SortedListElement_t *element) {
         if (strcmp(element->key, curr->key) <= 0) break;
         curr = curr->next;
     }
-
-
 
     curr->prev->next = element;
     element->prev = curr->prev;
@@ -62,16 +60,14 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key) {
 }
 
 int SortedList_length(SortedList_t *list) {
-    if (list == NULL) return -1;
-
     int count = 0;
 
-    SortedListElement_t *curr = list;
+    SortedListElement_t *curr = list->next;
     
     /* don't want to mess with incrementation concurrently */
     if (opt_yield & LOOKUP_YIELD) sched_yield();
     
-    while (curr->next != list) {
+    while (curr != list) {
         if (curr->next->prev != curr || curr->prev->next != curr) return -1;
 
         curr = curr->next;
