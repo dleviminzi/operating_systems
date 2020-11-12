@@ -133,9 +133,6 @@ int main(int argc, char *argv[]) {
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
 
-    /* flag for syncing */
-    int syncing = 0;
-
     /* Option processing */
     while ((opt = getopt_long(argc, argv, ":p:l", long_options, &option_index)) != -1) {
         switch(opt) {

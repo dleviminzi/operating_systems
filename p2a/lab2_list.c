@@ -112,9 +112,6 @@ int main(int argc, char *argv[]) {
     /* initializing structs for start and end time */
     struct timespec startTime, endTime;
 
-    /* flag for syncing */
-    int syncing = 0;
-
     char *yldOpts;
 
     /* Option processing */
@@ -253,7 +250,7 @@ int main(int argc, char *argv[]) {
     free(elements);
     free(list);
 
-    char title[65] = "add-";
+    char title[65] = "list-";
 
    /* if ((opt_yield & INSERT_YIELD) && (opt_yield & LOOKUP_YIELD)) strcat(title, "il");
     else if ((opt_yield & DELETE_YIELD) && (opt_yield & LOOKUP_YIELD)) strcat(title, "dl");
