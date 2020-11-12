@@ -300,7 +300,6 @@ tests: default
 	./lab2_add --threads=12  --iterations=10000 --sync=c --yield >> lab2_add.csv
 
 	touch lab2_list.csv
-	touch fail.txt
 	-./lab2_list --threads=1 --iterations=10 >> lab2_list.csv 
 	-./lab2_list --threads=1 --iterations=100 >> lab2_list.csv 
 	-./lab2_list --threads=1 --iterations=1000 >> lab2_list.csv 
