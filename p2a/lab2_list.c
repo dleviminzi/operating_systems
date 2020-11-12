@@ -186,26 +186,15 @@ int main(int argc, char *argv[]) {
     list->prev = list;
     list->key = NULL;
 
-
-
     elements = (SortedListElement_t*) malloc(sizeof(SortedListElement_t) * numElements); 
-
-    char options[] = "0123456789!\"#$%&'()*+-/. ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     int i;
     for (i = 0; i < numElements; ++i) {
 
         /* generating random key */
-        int length = rand()%15;
-        char key[15];
-
-        key[length] = '\0';
-
-        /* character by character key creation */
-        while (length) {
-            int index = (double) rand() / RAND_MAX * (sizeof options - 1);
-            key[--length] = options[index];
-        }
+        char key[2];
+        key[0] = (char) rand()%26 + 65;
+        key[1] = '\0';
 
         elements[i].key = key;
     }
