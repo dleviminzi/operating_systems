@@ -30,15 +30,15 @@ int mutexFlg = 0;
 int spinlock = 0;
 int spinFlg = 0;
 
-/* compare and swap parameters (just flg) */
-int compswapFlg = 0;
-
 /* struct to pass arguments to thread calling function */
 struct threadArgs {
     int threadNum;
     int *numThreads;
     int *numElements;
 };
+
+/* profiling flag */
+int profileFlg = 0;
 
 /* method to lock thread when needed */
 void lock() {
@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
         {"iterations", required_argument, NULL, 'i'},
         {"sync", required_argument, NULL, 's'},
         {"yield", required_argument, NULL, 'y'},
+        {"profile", no_argument, &profileFlg, 1},
         {0,0,0,0}
     };    
 
@@ -200,8 +201,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    /* check for/initialize mutex lock */
     if (mutexFlg) {
         pthread_mutex_init(&mutexLock, NULL);
+    }
+
+    /* check for/start profiling */
+    if (profileFlg) {
+        ProfilerStart("profile.prof");
     }
 
     /* init list of elements */
@@ -271,6 +278,10 @@ int main(int argc, char *argv[]) {
         exit(ERROR2);
     }
 
+    if (profileFlg) {
+        ProfilerStop();
+    }
+
     free(elements);
     free(list);
 
@@ -309,5 +320,5 @@ int main(int argc, char *argv[]) {
             numIterations, 1, totalOp, runTime, timePerOperation, 
             operationsPerSec);
 
-    pthread_exit(SUCCESS);
+    exit(SUCCESS);
 }
