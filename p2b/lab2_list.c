@@ -8,6 +8,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <signal.h>
+#include <gperftools/profiler.h>
 
 #define ERROR2 2
 #define ERROR1 1
@@ -106,6 +107,21 @@ void handler(int sig) {
     }
 }
 
+/* key gen */
+void randomKey(char *key) {
+    char options[] = "0123456789!\"#$%&'()*+-/.ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    int length = rand()%15;
+
+    key[length] = '\0';
+
+    /* character by character key creation */
+    while (length) {
+        int index = (double) rand() / RAND_MAX * (sizeof options - 1);
+        key[--length] = options[index];
+    }
+}
+
 int main(int argc, char *argv[]) {
     /* register seg fault handler */
     signal(SIGSEGV, handler);
@@ -143,14 +159,19 @@ int main(int argc, char *argv[]) {
                 break;
             case 'y':
                 opt_yield = 1;
-                
                 yldOpts = strdup(optarg);
 
                 unsigned long i;
                 for (i = 0; i < strlen(optarg); ++i) {
-                    if (optarg[i] == 'i') opt_yield |= INSERT_YIELD;
-                    else if (optarg[i] == 'd') opt_yield |= DELETE_YIELD;
-                    else if (optarg[i] == 'l') opt_yield |= LOOKUP_YIELD;
+                    if (optarg[i] == 'i') {
+                        opt_yield |= INSERT_YIELD;
+                    }
+                    else if (optarg[i] == 'd') {
+                        opt_yield |= DELETE_YIELD;
+                    }
+                    else if (optarg[i] == 'l') {
+                        opt_yield |= LOOKUP_YIELD;
+                    }
                     else {
                         fprintf(stderr, "Invalid option provided for yield. Only i, d, l are valid");
                         exit(ERROR1);
@@ -183,8 +204,6 @@ int main(int argc, char *argv[]) {
         pthread_mutex_init(&mutexLock, NULL);
     }
 
-    numElements = numIterations * numThreads;
-
     /* init list of elements */
     list = (SortedList_t *) malloc(sizeof(SortedList_t)); 
     list->next = list;
@@ -192,24 +211,13 @@ int main(int argc, char *argv[]) {
     list->key = NULL;
 
     /* init elements */
+    numElements = numIterations * numThreads;
     elements = (SortedListElement_t*) malloc(sizeof(SortedListElement_t) * numElements); 
-
-    char options[] = "0123456789!\"#$%&'()*+-/. ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     int i;
     for (i = 0; i < numElements; ++i) {
-        /* generating random key */
-        int length = rand()%15;
         char key[15];
-
-        key[length] = '\0';
-
-        /* character by character key creation */
-        while (length) {
-            int index = (double) rand() / RAND_MAX * (sizeof options - 1);
-            key[--length] = options[index];
-        }
-
+        randomKey(key);
         elements[i].key = key;
     }
 
@@ -223,7 +231,7 @@ int main(int argc, char *argv[]) {
     /* init attributes of threads */
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); 
 
     /* creating threads and sending em off to add stuff */  
     int rc, t;
@@ -240,8 +248,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* freeing attrribute and wiating for the other threads */
-    pthread_attr_destroy(&attr);
+    /* freeing attrribute and waiting for the other threads */
+    pthread_attr_destroy(&attr); 
 
     for (t = 0; t < numThreads; ++t) {
         if ((rc = pthread_join(threads[t], NULL))) {

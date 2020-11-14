@@ -1,0 +1,17 @@
+NAME: Daniel Levi-Minzi
+EMAIL: dleviminzi@protonmail.com
+ID: 004923946
+
+**QUESTION 2.3.1 - CPU time in the basic list implementation:**
+**Where do you believe most of the CPU time is spent in the 1 and 2-thread list tests ?**
+When there are only 1 or 2 threads, I think that most of the time is spent doing the actual operations.
+
+**Why do you believe these to be the most expensive parts of the code?**
+When there are few threads, the time spent spinning or performing context switching is inevitably going to be lower than if there were more threads. 
+
+**Where do you believe most of the CPU time is being spent in the high-thread spin-lock tests?**
+I think that most of the time is being wasted spinning for the lock.
+
+**Where do you believe most of the CPU time is being spent in the high-thread mutex tests?**
+The threads are now blocked when they can't obtain the lock, so spinning cannot account for very much time. I suspect that time is wasted performing context switches and during the mutex operations themselves. Aside from that, there is of course time spent doing the actual operations. 
+
