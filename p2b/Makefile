@@ -1,7 +1,7 @@
 default:
 	gcc -g -lpthread -lprofiler lab2_list.c SortedList.c -Wall -Wextra -o lab2_list
 profile: clean default
-	./lab2_list --threads=12 --iterations=1000 --sync=s --profile >> lab2_list.csv
+	CPUPROFILE_FREQUENCY=200 ./lab2_list --threads=12 --iterations=1000 --sync=s --profile >> lab2_list.csv
 clean:
 	rm -rf *tar* lab2_list lab2_add *.o *.dSYM *.csv *.png
 tests: clean default
