@@ -35,22 +35,25 @@ struct threadArgs {
     int threadNum;
     int *numThreads;
     int *numElements;
+    long long *waitTime;
 };
 
 /* profiling flag */
 int profileFlg = 0;
 
 /* method to lock thread when needed */
-long lock(struct timespec *startTime, struct timespec *endTime) {
+long lock() {
+    struct timespec startTime, endTime;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime);
 
     if (mutexFlg) pthread_mutex_lock(&mutexLock);
     else if (spinFlg) {
         while (__sync_lock_test_and_set(&spinlock, 1));
     }
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, endTime);
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime);
 
-    return (endTime->tv_nsec - startTime->tv_nsec) + (endTime->tv_sec - startTime->tv_sec) * BILLION;
+    return (endTime.tv_nsec - startTime.tv_nsec) + (endTime.tv_sec - startTime.tv_sec) * BILLION;
 }
 
 /* method to unlock thread when needed */
@@ -67,21 +70,18 @@ void *threadCall(void *threadArgs) {
     int threadNum = currArgs->threadNum;
     int numThreads = *(currArgs->numThreads);
     int numElements = *(currArgs->numElements);
-
-    long waitTime = 0;
-
-    struct timespec startTime, endTime;
+    long long *waitTime = currArgs->waitTime;
 
     /* inserting elements into the list */
     int i;
     for (i = threadNum; i < numElements; i += numThreads) {
-        waitTime += lock(&startTime, &endTime);
+        *waitTime += lock();
         SortedList_insert(list, &elements[i]);
         unlock();
     }
 
     /* check size of list */
-    waitTime += lock(&startTime, &endTime);
+    *waitTime += lock();
 
     int length = 0;
     length = SortedList_length(list);
@@ -94,7 +94,7 @@ void *threadCall(void *threadArgs) {
 
     /* lookup and delete elements that were added to list */
     for (i = threadNum; i < numElements; i += numThreads) {
-        waitTime += lock(&startTime, &endTime);
+        *waitTime += lock();
 
         SortedListElement_t *element;
         if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
@@ -110,7 +110,7 @@ void *threadCall(void *threadArgs) {
         unlock();
     } 
 
-    pthread_exit((void *) waitTime);
+    pthread_exit(NULL);
 }
 
 /* handler for segmentation faults */
@@ -248,6 +248,7 @@ int main(int argc, char *argv[]) {
     /* initializing array of threads and setting attributes */
     pthread_t threads[numThreads];
     struct threadArgs tArgs[numThreads];
+    long long waitTimes[numThreads];
 
     /* init attributes of threads */
     pthread_attr_t attr;
@@ -258,10 +259,13 @@ int main(int argc, char *argv[]) {
     int rc, t;
 
     for (t = 0; t < numThreads; t++) {
+        waitTimes[t] = 0;
+
         /* argument to be passed with function jump point */
         tArgs[t].threadNum = t;
         tArgs[t].numElements = &numElements;
         tArgs[t].numThreads = &numThreads;
+        tArgs[t].waitTime = &waitTimes[t];
 
         if ((rc = pthread_create(&threads[t], NULL, threadCall, (void *) &tArgs[t])) < 0) {
             fprintf(stderr, "Thread creation failed with error code: %d\n", rc);
@@ -272,17 +276,11 @@ int main(int argc, char *argv[]) {
     /* freeing attrribute and waiting for the other threads */
     pthread_attr_destroy(&attr); 
 
-    /* calculating total lock wait time */
-    long totalWaitTime = 0;
-    void **waitTime = (void *) malloc(sizeof(void **));
-
     for (t = 0; t < numThreads; ++t) {
-        if ((rc = pthread_join(threads[t], waitTime))) {
+        if ((rc = pthread_join(threads[t], NULL))) {
             fprintf(stderr, "Thread joining failed with error code: %d\n", rc);
             exit(ERROR1); 
         }
-
-        totalWaitTime += (long) *waitTime;
     }
 
     /* get ending time */
@@ -300,6 +298,12 @@ int main(int argc, char *argv[]) {
 
     if (profileFlg) {
         ProfilerStop();
+    }
+
+    /* calculating total lock wait time */
+    long long totalWaitTime = 0;
+    for (t = 0; t < numThreads; ++t) {
+        totalWaitTime += waitTimes[t];
     }
 
     free(elements);
@@ -336,7 +340,9 @@ int main(int argc, char *argv[]) {
 
     long long operationsPerSec = BILLION/timePerOperation;
 
-    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld,%ld\n", title, numThreads, 
+    totalWaitTime = totalWaitTime/totalOp;
+
+    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld,%lld\n", title, numThreads, 
             numIterations, 1, totalOp, runTime, timePerOperation, 
             operationsPerSec, totalWaitTime);
 
