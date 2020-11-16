@@ -41,11 +41,16 @@ struct threadArgs {
 int profileFlg = 0;
 
 /* method to lock thread when needed */
-void lock() {
+long lock(struct timespec *startTime, struct timespec *endTime) {
+
     if (mutexFlg) pthread_mutex_lock(&mutexLock);
     else if (spinFlg) {
         while (__sync_lock_test_and_set(&spinlock, 1));
     }
+
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, endTime);
+
+    return (endTime->tv_nsec - startTime->tv_nsec) + (endTime->tv_sec - startTime->tv_sec) * BILLION;
 }
 
 /* method to unlock thread when needed */
@@ -63,40 +68,49 @@ void *threadCall(void *threadArgs) {
     int numThreads = *(currArgs->numThreads);
     int numElements = *(currArgs->numElements);
 
+    long waitTime = 0;
+
+    struct timespec startTime, endTime;
+
     /* inserting elements into the list */
     int i;
     for (i = threadNum; i < numElements; i += numThreads) {
-        lock();
+        waitTime += lock(&startTime, &endTime);
         SortedList_insert(list, &elements[i]);
         unlock();
     }
 
     /* check size of list */
-    lock();
+    waitTime += lock(&startTime, &endTime);
+
     int length = 0;
     length = SortedList_length(list);
     if (length < 0) {
         fprintf(stderr, "Failed to get length of list: corruption.\n");
         exit(ERROR2);
     }
+
     unlock();
-        
+
     /* lookup and delete elements that were added to list */
     for (i = threadNum; i < numElements; i += numThreads) {
-        lock();
+        waitTime += lock(&startTime, &endTime);
+
         SortedListElement_t *element;
         if ((element = SortedList_lookup(list, elements[i].key)) == NULL) {
             fprintf(stderr, "Could not find element in list: corruption.\n");
             exit(ERROR2);
         }
+
         if (SortedList_delete(element) != 0) {
             fprintf(stderr, "Could not delete element from list: corruption.\n");
             exit(ERROR2);
         }
+
         unlock();
     } 
 
-    pthread_exit(NULL);
+    pthread_exit((void *) waitTime);
 }
 
 /* handler for segmentation faults */
@@ -258,11 +272,17 @@ int main(int argc, char *argv[]) {
     /* freeing attrribute and waiting for the other threads */
     pthread_attr_destroy(&attr); 
 
+    /* calculating total lock wait time */
+    long totalWaitTime = 0;
+    void **waitTime = (void *) malloc(sizeof(void **));
+
     for (t = 0; t < numThreads; ++t) {
-        if ((rc = pthread_join(threads[t], NULL))) {
+        if ((rc = pthread_join(threads[t], waitTime))) {
             fprintf(stderr, "Thread joining failed with error code: %d\n", rc);
             exit(ERROR1); 
         }
+
+        totalWaitTime += (long) *waitTime;
     }
 
     /* get ending time */
@@ -316,9 +336,9 @@ int main(int argc, char *argv[]) {
 
     long long operationsPerSec = BILLION/timePerOperation;
 
-    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld\n", title, numThreads, 
+    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld,%ld\n", title, numThreads, 
             numIterations, 1, totalOp, runTime, timePerOperation, 
-            operationsPerSec);
+            operationsPerSec, totalWaitTime);
 
     exit(SUCCESS);
 }
