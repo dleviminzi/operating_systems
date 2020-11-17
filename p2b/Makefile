@@ -17,7 +17,7 @@ prof_mac: clean def_mac
 	pprof --list=lock >> profile.out
 
 clean:
-	rm -rf *tar* lab2_list *.o *.dSYM
+	rm -rf *tar* lab2_list *.o *.dSYM *.prof
 
 tests: clean default
 	chmod +x test.sh
