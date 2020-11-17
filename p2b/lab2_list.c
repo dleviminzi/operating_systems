@@ -59,16 +59,17 @@ void unlock(pthread_mutex_t *mutexLock, int *spinLock) {
 }
 
 /* hash https://stackoverflow.com/questions/7666509/hash-function-for-string */
-int hash (const char* word)
-{
-    unsigned int hash = 0;
-    int i;
-    for (i = 0 ; word[i] != '\0' ; i++)
-    {
-        hash = 31*hash + word[i];
-    }
-    return hash;
+unsigned int hash(const char* key) {
+ 	int ret = 31;
+
+ 	while (*key) {
+    		ret = 28 * ret ^ *key;
+    		key++;
+  	}
+
+  	return ret;
 }
+
 
 /* function to be called when threading */
 void *threadCall(void *threadArgs) {
@@ -85,8 +86,10 @@ void *threadCall(void *threadArgs) {
     int i;
     for (i = threadNum; i < numElements; i += numThreads) {
         /* determine which list the element will be inserted into */
+        unsigned int hsh = hash(elements[i].key);
+
         int listToIns;
-        listToIns = hash(elements[i].key)%numLists;
+        listToIns = hsh % numLists;
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
         SortedList_insert(&lists[listToIns], &elements[i]);
@@ -112,8 +115,10 @@ void *threadCall(void *threadArgs) {
 
     /* lookup and delete elements that were added to list */
     for (i = threadNum; i < numElements; i += numThreads) {
+        unsigned int hsh = hash(elements[i].key);
+
         int listToIns;
-        listToIns = hash(elements[i].key)%numLists;
+        listToIns = hsh % numLists;
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
 
