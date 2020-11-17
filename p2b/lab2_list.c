@@ -62,7 +62,8 @@ void unlock(pthread_mutex_t *mutexLock, int *spinLock) {
 int hash (const char* word)
 {
     unsigned int hash = 0;
-    for (int i = 0 ; word[i] != '\0' ; i++)
+    int i;
+    for (i = 0 ; word[i] != '\0' ; i++)
     {
         hash = 31*hash + word[i];
     }
