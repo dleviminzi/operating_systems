@@ -68,7 +68,7 @@ plot \
     "< grep 'list-none-m,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
     title 'mutex lock' with points lc rgb 'blue', \
     "< grep 'list-none-s,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
-    title 'sync lock' with points lc rgb 'red', 
+    title 'sync lock' with points lc rgb 'red', \
     "< grep 'list-none-none,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
     title 'no lock' with points lc rgb 'green', 
 
