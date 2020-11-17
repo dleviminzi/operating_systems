@@ -82,18 +82,14 @@ tests: clean default
 	-./lab2_list --threads=12 --lists=4 --yield=id --iterations=80 --sync=s >> lab2_list.csv 
 	-./lab2_list --threads=16 --lists=4 --yield=id --iterations=80 --sync=s >> lab2_list.csv 
 
-# 1000 iterations for 1,2,4,8,12,16,24 threads w/ mutex and spin locking
-	./lab2_list --threads=16 --iterations=1000 --sync=m >> lab2_list.csv 
-	./lab2_list --threads=24 --iterations=1000 --sync=m >> lab2_list.csv 
-	./lab2_list --threads=16 --iterations=1000 --sync=s >> lab2_list.csv 
-	./lab2_list --threads=24 --iterations=1000 --sync=s >> lab2_list.csv 
-
 # 1000 it w/ 1, 4, 8, 16 lists and diff sync options
 	./lab2_list --threads=1 --lists=1 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=2 --lists=1 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=4 --lists=1 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=8 --lists=1 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=12 --lists=1 --iterations=1000 --sync=m >> lab2_list.csv 
+	./lab2_list --threads=16 --iterations=1000 --sync=m >> lab2_list.csv 
+	./lab2_list --threads=24 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=1 --lists=4 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=2 --lists=4 --iterations=1000 --sync=m >> lab2_list.csv 
 	./lab2_list --threads=4 --lists=4 --iterations=1000 --sync=m >> lab2_list.csv 
@@ -115,6 +111,8 @@ tests: clean default
 	./lab2_list --threads=4 --lists=1 --iterations=1000 --sync=s >> lab2_list.csv 
 	./lab2_list --threads=8 --lists=1 --iterations=1000 --sync=s >> lab2_list.csv 
 	./lab2_list --threads=12 --lists=1 --iterations=1000 --sync=s >> lab2_list.csv 
+	./lab2_list --threads=16 --iterations=1000 --sync=s >> lab2_list.csv 
+	./lab2_list --threads=24 --iterations=1000 --sync=s >> lab2_list.csv 
 	./lab2_list --threads=1 --lists=4 --iterations=1000 --sync=s >> lab2_list.csv 
 	./lab2_list --threads=2 --lists=4 --iterations=1000 --sync=s >> lab2_list.csv 
 	./lab2_list --threads=4 --lists=4 --iterations=1000 --sync=s >> lab2_list.csv 
