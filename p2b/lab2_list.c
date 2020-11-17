@@ -85,7 +85,7 @@ void *threadCall(void *threadArgs) {
     for (i = threadNum; i < numElements; i += numThreads) {
         /* determine which list the element will be inserted into */
         int listToIns;
-        listToIns = hash(*elements[i].key)%numLists;
+        listToIns = hash(elements[i].key)%numLists;
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
         SortedList_insert(&lists[listToIns], &elements[i]);
@@ -112,7 +112,7 @@ void *threadCall(void *threadArgs) {
     /* lookup and delete elements that were added to list */
     for (i = threadNum; i < numElements; i += numThreads) {
         int listToIns;
-        listToIns = (*elements[i].key)%numLists;
+        listToIns = hash(elements[i].key)%numLists;
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
 
