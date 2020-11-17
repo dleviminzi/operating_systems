@@ -34,9 +34,9 @@ set logscale y 10
 set output 'lab2b_1.png'
 
 plot \
-    "< grep 'list-none-s,[0-24]*,1000,' lab2_list.csv" using ($2):($8) \
+    "< grep 'list-none-s,[0-24]*,1000,1,' lab2_list.csv" using ($2):($8) \
     title 'spin lock' with linespoints lc rgb 'blue', \
-    "< grep 'list-none-m,[0-24]*,1000,' lab2_list.csv" using ($2):($8) \
+    "< grep 'list-none-m,[0-24]*,1000,1,' lab2_list.csv" using ($2):($8) \
     title 'mutex lock' with linespoints lc rgb 'red', 
 
 # Plotting wait for lock and avg time per operation vs number of threads
@@ -49,9 +49,9 @@ set logscale y 10
 set output 'lab2b_2.png'
 
 plot \
-    "< grep 'list-none-m,[0-24]*,1000,' lab2_list.csv" using ($2):($9) \
+    "< grep 'list-none-m,[0-24]*,1000,1,' lab2_list.csv" using ($2):($9) \
     title 'lock wait time' with linespoints lc rgb 'blue', \
-    "< grep 'list-none-m,[0-24]*,1000,' lab2_list.csv" using ($2):($7) \
+    "< grep 'list-none-m,[0-24]*,1000,1,' lab2_list.csv" using ($2):($7) \
     title 'time per operation' with linespoints lc rgb 'red', 
 
 
@@ -65,11 +65,11 @@ set logscale y 10
 set output 'lab2b_3.png'
 
 plot \
-    "< grep 'list-none-m,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep 'list-id-m,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
     title 'mutex lock' with points lc rgb 'blue', \
-    "< grep 'list-none-s,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep 'list-id-s,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
     title 'sync lock' with points lc rgb 'red', \
-    "< grep 'list-none-none,[0-16]*,[10,80]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep 'list-id-none,[0-16]*,[1,16]*,4,' lab2_list.csv" using ($2):($3) \
     title 'no lock' with points lc rgb 'green', 
 
 # Plotting ops per sec vs thread count per list num (sync m)
