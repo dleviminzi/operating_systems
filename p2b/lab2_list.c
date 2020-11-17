@@ -41,14 +41,14 @@ struct threadArgs {
 /* method to lock thread when needed */
 long lock(pthread_mutex_t *mutexLock, int *spinLock) {
     struct timespec startTime, endTime;
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime);
+    clock_gettime(CLOCK_MONOTONIC, &startTime);
 
     if (mutexFlg) pthread_mutex_lock(mutexLock);
     else if (spinFlg) {
         while (__sync_lock_test_and_set(spinLock, 1));
     }
 
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime);
+    clock_gettime(CLOCK_MONOTONIC, &endTime);
 
     return (endTime.tv_nsec - startTime.tv_nsec) + (endTime.tv_sec - startTime.tv_sec) * BILLION;
 }
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* get starting time */
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime);
+    clock_gettime(CLOCK_MONOTONIC, &startTime);
 
     /* initializing array of threads and setting attributes */
     pthread_t threads[numThreads];
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* get ending time */
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &endTime);
+    clock_gettime(CLOCK_MONOTONIC, &endTime);
 
     int finalLength = 0;
 
