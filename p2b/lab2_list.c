@@ -17,13 +17,14 @@
 
 /* globale variables */
 SortedListElement_t *elements;      /* elements for lists */
-SortedListElement_t *lists;         /* list heads */
+SortedList_t *lists;                /* list heads */
 pthread_mutex_t *mutexLocks;        /* mutex locks for lists */
+char **keys;
 int *spinLocks;                     /* spin locks for lists */
-int opt_yield = 0;          /* yield option specifier */
-int mutexFlg = 0;           /* mutex lock flag */
-int spinFlg = 0;            /* spin lock flag */
-int profileFlg = 0;         /* profiling flag */
+int opt_yield = 0;                  /* yield option specifier */
+int mutexFlg = 0;                   /* mutex lock flag */
+int spinFlg = 0;                    /* spin lock flag */
+int profileFlg = 0;                 /* profiling flag */
 
 
 /* struct to pass arguments to thread calling function */
@@ -90,6 +91,14 @@ void *threadCall(void *threadArgs) {
         int listToIns;
         listToIns = hsh % numLists;
 
+        /* debug method to check distribution of elements 
+        if (i < 0) {
+            fprintf(stderr, "%d\n", i);
+            fprintf(stderr, "%s\n", elements[i].key);
+            fprintf(stderr, "%d\n", hash(elements[i].key));
+            fprintf(stderr, "%d\n\n", listToIns);
+        } */
+
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
         SortedList_insert(&lists[listToIns], &elements[i]);
         unlock(&mutexLocks[listToIns], &spinLocks[listToIns]);
@@ -101,7 +110,13 @@ void *threadCall(void *threadArgs) {
         /* lock all lists so we can get the length */
         *waitTime += lock(&mutexLocks[i], &spinLocks[i]);
 
-        length += SortedList_length(&lists[i]);
+        int thisLength = SortedList_length(&lists[i]);
+
+        /* also here to check distribution of elements 
+        fprintf(stderr, "List #%d :", i);
+        fprintf(stderr, "%d\n", thisLength); */
+
+        length += thisLength;
 
         /* unlock all the lists now that we've counted it */
         unlock(&mutexLocks[i], &spinLocks[i]);
@@ -276,11 +291,12 @@ int main(int argc, char *argv[]) {
     /* init elements */
     numElements = numIterations * numThreads;
     elements = (SortedListElement_t*) malloc(sizeof(SortedListElement_t) * numElements); 
+    keys = (char **) malloc(sizeof(char*) * numElements);
 
     for (i = 0; i < numElements; ++i) {
-        char key[15];
-        randomKey(key);
-        elements[i].key = key;
+        keys[i] = (char *) malloc(sizeof(char) * 15);
+        randomKey(keys[i]);
+        elements[i].key = keys[i];
     }
 
     /* get starting time */
@@ -355,6 +371,7 @@ int main(int argc, char *argv[]) {
     }
 
     free(elements);
+    free(keys);
     free(lists);
     free(mutexLocks);
     free(spinLocks);
