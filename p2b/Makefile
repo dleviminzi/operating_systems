@@ -5,13 +5,15 @@ def_mac:
 
 profile: clean default
 	CPUPROFILE_FREQUENCY=800 ./lab2_list --threads=12 --iterations=1000 --sync=s --profile >> lab2_list.csv
-	pprof --text ./lab2_list profile.prof > profile.out
+	touch profile.out
+	pprof --text ./lab2_list profile.prof >> profile.out
+	pprof --list=lock >> profile.out
 
 prof_mac: clean def_mac
 	CPUPROFILE_FREQUENCY=800 ./lab2_list --threads=12 --iterations=1000 --sync=s --profile >> lab2_list.csv
 	touch profile.out
 	pprof --text ./lab2_list profile.prof >> profile.out
-	pprof --list=sync >> profile.out
+	pprof --list=lock >> profile.out
 
 clean:
 	rm -rf *tar* lab2_list *.o *.dSYM *.csv *.png *.out
