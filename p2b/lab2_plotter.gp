@@ -82,13 +82,13 @@ set logscale y 10
 set output 'lab2b_4.png'
 
 plot \
-    "< grep -e 'list-none-m,[0-9]*,1000,1,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,1,' lab2_list.csv" using ($2):($8) \
     title '1 list' with linespoints lc rgb 'red', \
-    "< grep -e 'list-none-m,[0-9]*,1000,4,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,4,' lab2_list.csv" using ($2):($8) \
     title '4 list' with linespoints lc rgb 'blue', \
-    "< grep -e 'list-none-m,[0-9]*,1000,8,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,8,' lab2_list.csv" using ($2):($8) \
     title '8 list' with linespoints lc rgb 'green', \
-    "< grep -e 'list-none-m,[0-9]*,1000,16,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,16,' lab2_list.csv" using ($2):($8) \
     title '16 list' with linespoints lc rgb 'yellow', 
 
 # Plotting ops per sec vs thread count per list num (sync s)
@@ -101,11 +101,11 @@ set logscale y 10
 set output 'lab2b_5.png'
 
 plot \
-    "< grep -e 'list-none-m,[0-9]*,1000,1,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,1,' lab2_list.csv" using ($2):($8) \
     title '1 list' with linespoints lc rgb 'red', \
-    "< grep -e 'list-none-m,[0-9]*,1000,4,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,4,' lab2_list.csv" using ($2):($8) \
     title '4 list' with linespoints lc rgb 'blue', \
-    "< grep -e 'list-none-m,[0-9]*,1000,8,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,8,' lab2_list.csv" using ($2):($8) \
     title '8 list' with linespoints lc rgb 'green', \
-    "< grep -e 'list-none-m,[0-9]*,1000,16,' lab2_list.csv" using ($2):($9) \
+    "< grep -e 'list-none-m,[0-9]*,1000,16,' lab2_list.csv" using ($2):($8) \
     title '16 list' with linespoints lc rgb 'yellow', 
