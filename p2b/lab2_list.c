@@ -58,6 +58,17 @@ void unlock(pthread_mutex_t *mutexLock, int *spinLock) {
     else if (spinFlg) __sync_lock_release(spinLock);
 }
 
+/* hash https://stackoverflow.com/questions/7666509/hash-function-for-string */
+unsigned long hash(unsigned char *str) {
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
+
 /* function to be called when threading */
 void *threadCall(void *threadArgs) {
     struct threadArgs *currArgs;
@@ -74,7 +85,7 @@ void *threadCall(void *threadArgs) {
     for (i = threadNum; i < numElements; i += numThreads) {
         /* determine which list the element will be inserted into */
         int listToIns;
-        listToIns = (*elements[i].key)%numLists;
+        listToIns = hash(*elements[i].key)%numLists;
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
         SortedList_insert(&lists[listToIns], &elements[i]);
