@@ -59,13 +59,13 @@ void unlock(pthread_mutex_t *mutexLock, int *spinLock) {
 }
 
 /* hash https://stackoverflow.com/questions/7666509/hash-function-for-string */
-unsigned long hash(unsigned char *str) {
-    unsigned long hash = 5381;
-    int c;
-
-    while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
+int hash (const char* word)
+{
+    unsigned int hash = 0;
+    for (int i = 0 ; word[i] != '\0' ; i++)
+    {
+        hash = 31*hash + word[i];
+    }
     return hash;
 }
 
