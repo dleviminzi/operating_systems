@@ -390,7 +390,7 @@ int main(int argc, char *argv[]) {
 
     totalWaitTime = totalWaitTime/totalOp;
 
-    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld,%lld\n", title, numThreads, 
+    fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld\n", title, numThreads, 
             numIterations, numLists, totalOp, runTime, timePerOperation, 
             totalWaitTime);
 
