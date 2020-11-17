@@ -70,7 +70,6 @@ unsigned int hash(const char* key) {
   	return ret;
 }
 
-
 /* function to be called when threading */
 void *threadCall(void *threadArgs) {
     struct threadArgs *currArgs;
@@ -389,13 +388,11 @@ int main(int argc, char *argv[]) {
     
     long long timePerOperation = runTime/totalOp;
 
-    long long operationsPerSec = BILLION/timePerOperation;
-
     totalWaitTime = totalWaitTime/totalOp;
 
     fprintf(stdout, "%s,%d,%d,%d,%d,%lld,%lld,%lld,%lld\n", title, numThreads, 
             numIterations, numLists, totalOp, runTime, timePerOperation, 
-            operationsPerSec, totalWaitTime);
+            totalWaitTime);
 
     exit(SUCCESS);
 }
