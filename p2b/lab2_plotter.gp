@@ -65,11 +65,11 @@ set logscale y 10
 set output 'lab2b_3.png'
 
 plot \
-    "< grep -e 'list-id-m,[0-9]*,[0,9]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep -e 'list-id-m,[0-9]*,[0-9]*,4,' lab2_list.csv" using ($2):($3) \
     title 'mutex lock' with points lc rgb 'blue', \
-    "< grep -e 'list-id-s,[0-9]*,[0,9]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep -e 'list-id-s,[0-9]*,[0-9]*,4,' lab2_list.csv" using ($2):($3) \
     title 'sync lock' with points lc rgb 'red', \
-    "< grep -e 'list-id-none,[0-9]*,[0,9]*,4,' lab2_list.csv" using ($2):($3) \
+    "< grep -e 'list-id-none,[0-9]*,[0-9]*,4,' lab2_list.csv" using ($2):($3) \
     title 'no lock' with points lc rgb 'green', 
 
 # Plotting ops per sec vs thread count per list num (sync m)
