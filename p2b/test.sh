@@ -39,7 +39,7 @@ for i in 1, 2, 4, 8, 12, 16
 do 
     for j in 4, 8, 16
     do
-        ./lab2_list --threads=$i --iterations=1000 --yield=id --lists=$j --sync=m >> lab2_list.csv
+        ./lab2_list --threads=$i --iterations=1000 --lists=$j --sync=m >> lab2_list.csv
     done
 done
 
@@ -47,6 +47,6 @@ for i in 1, 2, 4, 8, 12, 16
 do 
     for j in 4, 8, 16
     do
-        ./lab2_list --threads=$i --iterations=1000 --yield=id --lists=$j --sync=s >> lab2_list.csv
+        ./lab2_list --threads=$i --iterations=1000 --lists=$j --sync=s >> lab2_list.csv
     done
 done

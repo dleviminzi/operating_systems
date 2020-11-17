@@ -3,7 +3,7 @@ default:
 def_mac: 
 	gcc -Wl,-no_pie -g -lpthread -lprofiler lab2_list.c SortedList.c -Wall -Wextra -o lab2_list
 
-profile: clean default
+profile: default
 	CPUPROFILE_FREQUENCY=800 ./lab2_list --threads=12 --iterations=1000 --sync=s --profile >> lab2_list.csv
 	touch profile.out
 	pprof --text ./lab2_list profile.prof >> profile.out
@@ -26,5 +26,5 @@ tests: clean default
 graphs: tests
 	gnuplot lab2_plotter.gp
 
-dist: graphs lab2_list.c Makefile README SortedList.c SortedList.h
+dist: graphs profile lab2_list.c Makefile README SortedList.c SortedList.h
 	tar -czvf lab2b-004923946.tar.gz README Makefile lab2_list.c SortedList.h SortedList.c test.sh *.gp *.png *.csv *.out 
