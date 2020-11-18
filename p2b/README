@@ -2,6 +2,32 @@ NAME: Daniel Levi-Minzi
 EMAIL: dleviminzi@protonmail.com
 ID: 004923946
 
+lab2_list.c         -> File containing all options/implementations specified by the spec 
+
+SortedList.h        -> Guidelines for a sortedlist implementation
+
+SortedList.c        -> Actual sortedlist implementation
+
+Makefile            -> Makefile to make all the various requirements, profile, test, dist, etc.
+
+test.sh             -> test calls
+
+lab2b_list.csv      -> raw results of test calls
+
+lab2b_1.png         -> throughput vs. thread count
+
+lab2b_2.png         -> wait time graphs for mutext, sync, etc
+
+lab2b_3.png         -> successful iterations
+
+lab2b_4.png         -> throughput vs threadcount mutex partitioned
+
+lab2b_5.png         -> throughput vs threadcount sync lock partitioned
+
+lab2b_plotter.gp    -> gp script to generate the above png graphs
+
+--------------------------------------------------------------------------------
+
 **QUESTION 2.3.1 - CPU time in the basic list implementation:**
 **Where do you believe most of the CPU time is spent in the 1 and 2-thread list tests ?**
 When there are only 1 or 2 threads, I think that most of the time is spent doing the actual operations.
