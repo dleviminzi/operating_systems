@@ -91,13 +91,13 @@ void *threadCall(void *threadArgs) {
         int listToIns;
         listToIns = hsh % numLists;
 
-        /* debug method to check distribution of elements */
+        /* debug method to check distribution of elements 
         if (i < 0) {
             fprintf(stderr, "%d\n", i);
             fprintf(stderr, "%s\n", elements[i].key);
             fprintf(stderr, "%d\n", hash(elements[i].key));
             fprintf(stderr, "%d\n\n", listToIns);
-        }
+        } */
 
         *waitTime += lock(&mutexLocks[listToIns], &spinLocks[listToIns]);
         SortedList_insert(&lists[listToIns], &elements[i]);

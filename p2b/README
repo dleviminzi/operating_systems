@@ -15,3 +15,34 @@ I think that most of the time is being wasted spinning for the lock.
 **Where do you believe most of the CPU time is being spent in the high-thread mutex tests?**
 The threads are now blocked when they can't obtain the lock, so spinning cannot account for very much time. I suspect that time is wasted performing context switches and during the mutex operations themselves. Aside from that, there is of course time spent doing the actual operations. 
 
+**QUESTION 2.3.2 - Execution Profiling:**
+
+**Where (what lines of code) are consuming most of the CPU time when the spin-lock version of the list exerciser is run with a large number of threads?**
+The function I have written to lock the thread takes the largest portion of the time. More specifically the spin lock within the lock function.
+
+**Why does this operation become so expensive with large numbers of threads?**
+This operation becomes more expensive because more threads are competing for the resource. This means that there is 
+more wait time. When using spin locks, the wait time is expensive, so when we dramatically increase it, we slow down.
+
+**QUESTION 2.3.3 - Mutex Wait Time:**
+**Look at the average time per operation (vs. # threads) and the average wait-for-mutex time (vs. #threads).**
+
+**Why does the average lock-wait time rise so dramatically with the number of contending threads?**
+The more threads we have the more often they are going to have to wait to gain access to the resources. Creating more threads does not create more CPU, so we are sharing the same resource among more threads. 
+
+**Why does the completion time per operation rise (less dramatically) with the number of contending threads?**
+Even though there is more waiting time, there is still always progress being made by some threads. So, while it does rise, the rise is less exagerated because of the progress.
+
+**How is it possible for the wait time per operation to go up faster (or higher) than the completion time per operation?**
+Well there is time spent where many threads are waiting and we are not accounting for that. We simply add all the wait times up together, but in reality many are waiting all at once. This overlap causes our wait time to look much more dramatic than the time to completion that has no overlap.
+
+**QUESTION 2.3.4 - Performance of Partitioned Lists**
+
+**Explain the change in performance of the synchronized methods as a function of the number of lists.**
+More lists means better throughput.
+
+**Should the throughput continue increasing as the number of lists is further increased? If not, explain why not.**
+There will be some cap as to how good the performance can get, but it would probably increase a bit more. This limit will be reached when we have more lists than elements (or equal). When this is the case, it will not matter how many more lists we add.
+
+**It seems reasonable to suggest the throughput of an N-way partitioned list should be equivalent to the throughput of a single list with fewer (1/N) threads. Does this appear to be true in the above curves? If not, explain why not**
+It seems reasonable for it to be similar. The troughput at these points on the different graphs seems similar. However, if we dramatically increase N we will start to see the equivalence falter. This would result from difference in sublist length causing less uniform wait times. 
