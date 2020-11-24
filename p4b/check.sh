@@ -8,7 +8,7 @@ then
 fi 
 
 # logfile working
-./lab4b --period=1 --scale="F" --logfile="logfile" <<-EOF
+./lab4b --period=1 --scale="F" --log="logfile" <<-EOF
 SCALE=C
 STOP
 START
