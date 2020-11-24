@@ -1,5 +1,5 @@
 default:
-	gcc -g -lmraa lab4b.c -Wall -Wextra -o lab4b
+	gcc -g -lm -lmraa -lpthreah lab4b.c -Wall -Wextra -o lab4b
 
 clean:
 	rm lab4b
