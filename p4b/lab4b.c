@@ -29,6 +29,7 @@ char scale;      /* temp in f or c */
 int logFD;            /* file descriptor of logfile */
 int off;
 int reporting;
+int period;
 
 void printTime() {
     time_t raw;
@@ -75,8 +76,8 @@ void reportTemp(float convTemp) {
 }
 
 /* thread function to gather temp and then wait */
-void *getTemp(void *period) {
-    int *period = (int *) period;
+void *getTemp(void *prd) {
+    int *period = (int *) prd;
 
     while (!off) {
         float temp = mraa_aio_read_float(tempSensor);
@@ -131,7 +132,7 @@ void command(char *cmd) {
 
 int main(int argc, char* argv[]) {
     scale = 'F';
-    int period = 1;         /* seconds to wait between reading temp */         
+    period = 1;         /* seconds to wait between reading temp */         
     logFD = -1;
     off = FALSE;
     reporting = FALSE;
@@ -249,8 +250,8 @@ int main(int argc, char* argv[]) {
         for (i = 0; i < lenBuff; ++i) {
             if (buff[i] == '\n') {
                 buff[i] = '\0';
-                dprintf(logFD, "%s\n", buff + i);
-                command(buff + i);
+                dprintf(logFD, "%s\n", buff + start);
+                command(buff + start);
                 start = i + 1;
             }
         }
