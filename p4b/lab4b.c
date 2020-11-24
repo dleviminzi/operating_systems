@@ -81,7 +81,7 @@ void *getTemp(void *prd) {
 
     while (!off) {
         float temp = mraa_aio_read_float(tempSensor);
-        float convTemp = calcTemp(temp, scale);
+        float convTemp = calcTemp(temp);
         reportTemp(convTemp);
         sleep(*period);
     }
