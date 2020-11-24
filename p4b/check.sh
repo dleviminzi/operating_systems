@@ -7,8 +7,8 @@ then
     echo "bad arg not caught"
 fi 
 
-# log working
-./lab4b --period=1 --scale="F" --log="logfile" <<-EOF
+# logfile working
+./lab4b --period=1 --scale="F" --logfile="logfile" <<-EOF
 SCALE=C
 STOP
 START
@@ -19,7 +19,7 @@ EOF
 
 if [[ $? -ne 0 ]]
 then 
-    echo "failed logging"
+    echo "failed loging"
 fi 
 
 if [ ! -s logfile ] 
@@ -27,44 +27,44 @@ then
     echo "didn't create logfile"
 fi
 
-grep "SCALE=C" LOG &> /dev/null; \
+grep "SCALE=C" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log scale"
+	echo "didn't properly logfile scale"
 fi
 
-grep "STOP" LOG &> /dev/null; \
+grep "STOP" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log stop"
+	echo "didn't properly logfile stop"
 fi
 
-grep "START" LOG &> /dev/null; \
+grep "START" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log start"
+	echo "didn't properly logfile start"
 fi
 
-grep "SCALE=F" LOG &> /dev/null; \
+grep "SCALE=F" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log scale"
+	echo "didn't properly logfile scale"
 fi
 
-grep "PERIOD=2" LOG &> /dev/null; \
+grep "PERIOD=2" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log period"
+	echo "didn't properly logfile period"
 fi
 
-grep "OFF" LOG &> /dev/null; \
+grep "OFF" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log off"
+	echo "didn't properly logfile off"
 fi
 
-grep "SHUTDOWN" LOG &> /dev/null; \
+grep "SHUTDOWN" logfile &> /dev/null; \
 if [[ $? -ne 0 ]]
 then
-	echo "didn't properly log SHUTDOWN"
+	echo "didn't properly logfile SHUTDOWN"
 fi
