@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
                 period = atoi(optarg);
                 break;
             case 's':
-                if (strlen(optarg) > 1 || (optarg[0] != 'F' && optarg[0] != 'S')) {
+                if (strlen(optarg) > 1 || (optarg[0] != 'F' && optarg[0] != 'S' && optarg[0] != 'f' && optarg[0] != 's')) {
                     fprintf(stderr, "Scale must be either S or F. Try again.");
                     exit(ERROR);
                 }
