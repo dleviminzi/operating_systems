@@ -38,7 +38,7 @@ void printTime() {
     Time = localtime(&raw);
 
     fprintf(stdout, "%.2d:%.2d:%.2d ", Time->tm_hour, Time->tm_min, Time->tm_sec);
-    if (logFD != -1) {
+    if (logFD != -1 && reporting) {
         dprintf(logFD, "%.2d:%.2d:%.2d ", Time->tm_hour, Time->tm_min, Time->tm_sec);
     } 
 }
@@ -51,12 +51,12 @@ void fdRedirect(int newFD, int targetFD) {
 }
 
 /* calculate the temperature as is done on the doc page */
-float calcTemp(float temp) {
-    float R = 1023.0/temp -1.0;
+double calcTemp(int temp) {
+    double t = 1023.0/(double)temp - 1.0;
 
-    R = R0*R;
+    t = R0*t;
 
-    float outputTemp = 1.0/(log(R/R0)/B+1/298.15)-273.15;
+    float outputTemp = 1.0/(log(t/R0)/B+1/298.15)-273.15;
 
     /* convert if needed */
     if (scale == 'F') {
@@ -80,11 +80,15 @@ void *getTemp(void *prd) {
     int *period = (int *) prd;
 
     while (!off) {
-        float temp = mraa_aio_read_float(tempSensor);
+        float temp = mraa_aio_read(tempSensor);
         float convTemp = calcTemp(temp);
         reportTemp(convTemp);
         sleep(*period);
     }
+
+    float temp = mraa_aio_read(tempSensor);
+    float convTemp = calcTemp(temp);
+    reportTemp(convTemp);
 
     pthread_exit(NULL);
 }
@@ -257,9 +261,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-        mraa_aio_close(tempSensor);
-        mraa_gpio_close(button);
-        close(logFD);
+    mraa_aio_close(tempSensor);
+    mraa_gpio_close(button);
+    close(logFD);
 
-        exit(SUCCESS);
+    exit(SUCCESS);
 }
