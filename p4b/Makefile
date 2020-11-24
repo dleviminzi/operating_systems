@@ -6,7 +6,7 @@ check: default
 	./check.sh
 
 clean:
-	rm lab4b *.o *.tar.gz
+	rm -f lab4b *.o *.tar.gz
 
 dist:
 	tar -czvf lab4b-004923946.tar.gz README Makefile lab4b.c

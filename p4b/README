@@ -3,4 +3,6 @@ EMAIL: dleviminzi@protonmail.com
 ID: 004923946
 
 
-aSDAWdawda
+lab4b.c         -> contains code to check sensors for temp periodically and shut with button
+Makefile        -> contains commands to build, clean, test, dist
+checks.sh       -> contain all of the tests used by makefile
