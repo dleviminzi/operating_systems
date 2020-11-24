@@ -1,6 +1,7 @@
 #include <mraa.h>
 #include <mraa/gpio.h>
 #include <mraa/aio.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,7 +28,6 @@ const int R0 = 100000;
 char scale;      /* temp in f or c */
 int logFD;            /* file descriptor of logfile */
 int off;
-int period;
 int reporting;
 
 void printTime() {
@@ -50,7 +50,7 @@ void fdRedirect(int newFD, int targetFD) {
 }
 
 /* calculate the temperature as is done on the doc page */
-float calcTemp(float temp, char *scale) {
+float calcTemp(float temp) {
     float R = 1023.0/temp -1.0;
 
     R = R0*R;
@@ -75,14 +75,14 @@ void reportTemp(float convTemp) {
 }
 
 /* thread function to gather temp and then wait */
-void getTemp(void *period) {
-    int period = *((int *) period);
+void *getTemp(void *period) {
+    int *period = (int *) period;
 
     while (!off) {
         float temp = mraa_aio_read_float(tempSensor);
         float convTemp = calcTemp(temp, scale);
         reportTemp(convTemp);
-        sleep(period);
+        sleep(*period);
     }
 
     pthread_exit(NULL);
@@ -131,7 +131,7 @@ void command(char *cmd) {
 
 int main(int argc, char* argv[]) {
     scale = 'F';
-    period = 1;         /* seconds to wait between reading temp */         
+    int period = 1;         /* seconds to wait between reading temp */         
     logFD = -1;
     off = FALSE;
     reporting = FALSE;
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                 period = atoi(optarg);
                 break;
             case 's':
-                if (strlen(optarg) > 1 || optarg[0] != 'F' && optarg[0] != 'S') {
+                if (strlen(optarg) > 1 || (optarg[0] != 'F' && optarg[0] != 'S')) {
                     fprintf(stderr, "Scale must be either S or F. Try again.");
                     exit(ERROR);
                 }
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
             off = TRUE;
 
             int rc;
-            if ((rc = pthread_join(tempSensor, NULL))) {  /* join temp thread */
+            if ((rc = pthread_join(tSensor, NULL))) {  /* join temp thread */
                 fprintf(stderr, "Thread joining failed with error code: %d\n", rc);
                 exit(ERROR); 
             }
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
 
         /* perform polling */
         int events;
-        if ((events = poll(inputPoll, 1, 0)) < 0) {
+        if ((events = poll(&inputPoll, 1, 0)) < 0) {
             fprintf(stderr, "Polling failed");
             exit(ERROR);
         }
@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        int lenBuff
+        int lenBuff;
         if (inputPoll.revents && POLLIN) {
             if ((lenBuff = read(STDIN_FILENO, buff, BUFF_SIZE)) < 0) {
                 fprintf(stderr, "Failed to read from stdin: %s", strerror(errno));
