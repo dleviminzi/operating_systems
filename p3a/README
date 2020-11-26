@@ -1,2 +1,10 @@
-Daniel Levi-Minzi
+Clement Decker, Daniel Levi-Minzi
 
+arg handling                [x]
+superblock summary          [x]
+group summary               [ ]
+free block entries          [ ]
+free I-node entries         [ ]
+I-node summary              [ ]
+directory entries           [ ]
+indirect block references   [ ]
