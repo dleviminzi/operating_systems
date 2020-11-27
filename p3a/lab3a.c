@@ -48,7 +48,7 @@ void block_bitmap(char* bitmap, __u32 num_blocks)
       char cur_byte = bitmap[i];
       //examine each of the 8 blocks represented in this byte
       int j;
-      int testval = 1<<7;
+      int testval = 1;
       for(j = 0; j < 8; j++)
 	{
 	  __u32 block_num = (i*8) + (j+1);
@@ -61,7 +61,7 @@ void block_bitmap(char* bitmap, __u32 num_blocks)
 	  if(block_num == num_blocks)
 	    return;
 	  
-	  testval = testval>>1;
+	  testval = testval<<1;
 	}
       i++;
     }
@@ -77,7 +77,7 @@ void inode_bitmap(char* bitmap, __u32 num_inodes)
       char cur_byte = bitmap[i];
       //examine each of the 8 blocks represented in this byte
       int j;
-      int testval = 1<<7;
+      int testval = 1;
       for(j = 0; j < 8; j++)
 	{
 	  __u32 inode_num = (i*8) + (j+1);
@@ -86,7 +86,7 @@ void inode_bitmap(char* bitmap, __u32 num_inodes)
 	      //the block is free
 	      fprintf(stdout, "IFREE,%d\n", inode_num);
 	    }
-	  testval = testval>>1;
+	  testval = testval<<1;
 
 	  if(inode_num == num_inodes)
 	    return;
