@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
     /* argument handling */
     if (argc < 2 || argc > 2) {
-        fprintf(stderr, "Must pass exactly one img file argument.\n");      /* I doubt it matters, but we could use cstdio here if we want */
+        fprintf(stderr, "Must pass exactly one img file argument.\n");
         exit(ERROR);
     }
 
@@ -123,9 +123,12 @@ int main(int argc, char *argv[]) {
         exit(ERROR);
       }
 
+    /* output super block information; store size */
     super_block(superBlock);
 
     __u32 bSize = 1024 << superBlock->s_log_block_size;
+
+    /* collect block group description */
     struct ext2_group_desc *group_desc = malloc(sizeof(struct ext2_group_desc));
     if(pread(imgFD, (void *) group_desc, sizeof(struct ext2_group_desc), 1024 + bSize) < 1)
       {
@@ -135,6 +138,7 @@ int main(int argc, char *argv[]) {
 	exit(ERROR);
       }
     
+    /* output block group description */
     group_descriptors(superBlock, group_desc);
 
     __u32 block_bitmap_pos = group_desc->bg_block_bitmap;
