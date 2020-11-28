@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <time.h>
+#include <math.h>
 #include "ext2_fs.h"
 
 
@@ -96,6 +98,76 @@ void inode_bitmap(char* bitmap, __u32 num_inodes)
 
 }
 
+char *getTime(__u32 *time, char *t) {
+    struct tm ts;
+
+    ts = *localtime((time_t *) time);
+
+    strftime(*t, sizeof(*t), "%m-%d-%Y %H:%M:%S, %Z" , &ts);
+}
+
+void inode_summary(struct ext2_inode *inode, int inodeNum) {
+    __u16 mode = inode->i_mode;             
+    __u16 links = inode->i_links_count;     /* number of links */
+
+    if (mode == 0 && links == 0) {
+        return;
+    }
+
+    char ftype;                             /* determine file type */
+    __u16 modeMask = mode & 0xf000;
+    switch(modeMask) {
+        case 0x8000:
+            ftype = 'f';
+            break;
+        case 0x4000:
+            ftype = 'd';
+            break;
+        case 0xA000:
+            ftype = 's';
+            break;
+        default:
+            ftype = '?';
+    }
+
+    __u16 mode12 = mode & 0xFFF;            /* determine mode */
+
+    __u16 owner = inode->i_uid;             /* determine owner */
+
+    __u16 group = inode->i_gid;             /* group id */
+
+
+    time_t rawtime;
+    struct tm ts;
+
+    rawtime = (time_t) inode->i_ctime;
+    char ctime[80];
+    ts = *gmtime(&rawtime);
+    strftime(ctime, sizeof(ctime), "%m-%d-%Y %H:%M:%S" , &ts);
+
+    rawtime = (time_t) inode->i_mtime;
+    char mtime[80];
+    ts = *gmtime(&rawtime);
+    strftime(mtime, sizeof(mtime), "%m-%d-%Y %H:%M:%S" , &ts);
+
+    rawtime = (time_t) inode->i_atime;
+    char atime[80];
+    ts = *gmtime(&rawtime);
+    strftime(atime, sizeof(atime), "%m-%d-%Y %H:%M:%S" , &ts);
+
+    __u32 size = inode->i_size;
+
+    __u32 numBlocks = inode->i_blocks;
+
+
+    fprintf(stdout, "INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n", inodeNum, ftype, 
+                                                                mode12, owner,
+                                                                group, links,
+                                                                ctime, mtime,
+                                                                atime, size,
+                                                                numBlocks);
+}
+
 int main(int argc, char *argv[]) {
 
     /* argument handling */
@@ -126,7 +198,14 @@ int main(int argc, char *argv[]) {
     /* output super block information; store size */
     super_block(superBlock);
 
+
+    /* determining the number of block groups */
     __u32 bSize = 1024 << superBlock->s_log_block_size;
+    __u32 block_count = superBlock->s_blocks_count;
+    __u32 inode_count = superBlock->s_inodes_count;
+    __u32 blocksPerGroup = superBlock->s_blocks_per_group;
+
+    __u32 numBlockGroups = 1 + (block_count - 1)/blocksPerGroup;
 
     /* collect block group description */
     struct ext2_group_desc *group_desc = malloc(sizeof(struct ext2_group_desc));
@@ -153,7 +232,6 @@ int main(int argc, char *argv[]) {
     }
 
     //process the bitmap
-    __u32 block_count = superBlock->s_blocks_count;
     block_bitmap((char*)buff_block, block_count);
 
     //process the inode bitmap
@@ -168,7 +246,31 @@ int main(int argc, char *argv[]) {
       exit(ERROR);
     }
 
-    __u32 inode_count = superBlock->s_inodes_count;
     inode_bitmap((char*)buff_inode, inode_count);
+
+    /* inode summary code */
+    __u32 numInodes = superBlock->s_inodes_per_group;
+    __u32 sizeInode = superBlock->s_inode_size;
+    __u32 inodeTable = (group_desc->bg_inode_table) * bSize;
+
+    /* move through inode table reading each index */
+    __u32 inodeNum;
+    for (inodeNum = 1; inodeNum <= numInodes; ++inodeNum) {
+        __u32 inodeIndex = inodeNum - 1;        /* local index = num -1 */
+
+        struct ext2_inode inode;
+
+        if (pread(imgFD, &inode, sizeof(struct ext2_inode), 
+                  inodeTable + (inodeIndex * sizeInode)) < 1) {
+            fprintf(stderr, "Failed to read Inode from table.\n");
+            free(group_desc);
+            free(superBlock);
+            exit(ERROR);
+        } 
+
+        inode_summary(&inode, inodeNum);
+    }
+    
+
     exit(SUCCESS);
 }
