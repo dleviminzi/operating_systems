@@ -11,6 +11,10 @@
 #define ERROR 1
 #define SUCCESS 0
 
+struct ext2_super_block *superBlock;
+int imgFD;
+__u32 bSize;
+
 void super_block(struct ext2_super_block* superBlock)
 {
     /* collecting information from superblock and printing */
@@ -98,12 +102,37 @@ void inode_bitmap(char* bitmap, __u32 num_inodes)
 
 }
 
-char *getTime(__u32 *time, char *t) {
-    struct tm ts;
+/* method for reading direct direct dir entries */
+void dir_entry(struct ext2_inode *inode, int inodeNum) {
+    int i;
+    for (i = 0; i < EXT2_NDIR_BLOCKS; ++i) {
+        __u32 block = inode->i_block[i];          /* get block # and calc offset */
+        __u32 offset = 1024 + (block - 1) * bSize;
+        
+        struct ext2_dir_entry dirE;   
 
-    ts = *localtime((time_t *) time);
+        if (block != 0) {
+            __u32 numBytes = 0;
 
-    strftime(*t, sizeof(*t), "%m-%d-%Y %H:%M:%S, %Z" , &ts);
+            while (numBytes < bSize) {
+                if (pread(imgFD, &dirE, sizeof(struct ext2_dir_entry), offset + numBytes) < 1) {
+                    fprintf(stderr, "Failed to read Inode from table.\n");
+                    exit(ERROR);
+                } 
+
+                numBytes += dirE.rec_len;
+
+                if (dirE.inode == 0) {
+                    continue;
+                }
+
+                fprintf(stdout, "DIRENT,%d,%d,%d,%d,%d,'%s'\n", inodeNum, numBytes, 
+                                                        dirE.inode, dirE.rec_len,
+                                                        dirE.name_len, dirE.name);
+
+            }
+        }
+    }
 }
 
 void inode_summary(struct ext2_inode *inode, int inodeNum) {
@@ -130,13 +159,6 @@ void inode_summary(struct ext2_inode *inode, int inodeNum) {
             ftype = '?';
     }
 
-    __u16 mode12 = mode & 0xFFF;            /* determine mode */
-
-    __u16 owner = inode->i_uid;             /* determine owner */
-
-    __u16 group = inode->i_gid;             /* group id */
-
-
     time_t rawtime;
     struct tm ts;
 
@@ -156,16 +178,31 @@ void inode_summary(struct ext2_inode *inode, int inodeNum) {
     strftime(atime, sizeof(atime), "%m-%d-%Y %H:%M:%S" , &ts);
 
     __u32 size = inode->i_size;
-
+    __u16 mode12 = mode & 0xFFF;            /* determine mode */
+    __u16 owner = inode->i_uid;             /* determine owner */
+    __u16 group = inode->i_gid;             /* group id */
     __u32 numBlocks = inode->i_blocks;
 
 
-    fprintf(stdout, "INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d\n", inodeNum, ftype, 
-                                                                mode12, owner,
-                                                                group, links,
-                                                                ctime, mtime,
-                                                                atime, size,
-                                                                numBlocks);
+    fprintf(stdout, "INODE,%d,%c,%o,%d,%d,%d,%s,%s,%s,%d,%d", inodeNum, ftype, 
+                                                              mode12, owner,
+                                                              group, links,
+                                                              ctime, mtime,
+                                                              atime, size,
+                                                              numBlocks);
+
+    if (!(ftype == 's' && size <= 60)) {
+        int i;
+        for (i = 0; i < EXT2_N_BLOCKS; ++i) {
+            fprintf(stdout, ",%d", inode->i_block[i]);
+        }
+    }
+    
+    fprintf(stdout, "\n");
+
+    if (ftype == 'd') {
+        dir_entry(inode, inodeNum);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -177,10 +214,10 @@ int main(int argc, char *argv[]) {
     }
 
     /* allocating superBlock object (will be populated using pread) */
-    struct ext2_super_block *superBlock = malloc(sizeof(struct ext2_super_block));
+    superBlock = malloc(sizeof(struct ext2_super_block));
 
     /* opening img and reading super block into object created above */
-    int imgFD = open(argv[1], O_RDONLY);
+    imgFD = open(argv[1], O_RDONLY);
 
     if (pread(imgFD, (void *) superBlock, sizeof(struct ext2_super_block), 1024) < 1) {
         fprintf(stderr, "Failed to load superblock into memory\n");
@@ -200,7 +237,7 @@ int main(int argc, char *argv[]) {
 
 
     /* determining the number of block groups */
-    __u32 bSize = 1024 << superBlock->s_log_block_size;
+    bSize = 1024 << superBlock->s_log_block_size;
     __u32 block_count = superBlock->s_blocks_count;
     __u32 inode_count = superBlock->s_inodes_count;
     __u32 blocksPerGroup = superBlock->s_blocks_per_group;
