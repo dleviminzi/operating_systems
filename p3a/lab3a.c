@@ -34,7 +34,7 @@ void group_descriptors(struct ext2_super_block *superBlock, struct ext2_group_de
   //print information about group
   //we assume 1 group in file system
   int group_num = 0;
-  __u32 num_blocks = superBlock->s_blocks_per_group;
+  __u32 num_blocks = superBlock->s_blocks_count;
   __u32 num_inodes = superBlock->s_inodes_per_group;
   __u32 free_blocks = group_desc->bg_free_blocks_count;
   __u32 free_inodes = group_desc->bg_free_inodes_count;
