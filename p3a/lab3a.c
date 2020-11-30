@@ -120,9 +120,8 @@ void dir_entry(struct ext2_inode *inode, int inodeNum) {
                     exit(ERROR);
                 } 
 
-                numBytes += dirE.rec_len;
-
                 if (dirE.inode == 0) {
+                    numBytes += dirE.rec_len;
                     continue;
                 }
 
@@ -130,6 +129,7 @@ void dir_entry(struct ext2_inode *inode, int inodeNum) {
                                                         dirE.inode, dirE.rec_len,
                                                         dirE.name_len, dirE.name);
 
+                numBytes += dirE.rec_len;
             }
         }
     }
@@ -234,17 +234,17 @@ void inode_summary(struct ext2_inode *inode, int inodeNum) {
     rawtime = (time_t) inode->i_ctime;
     char ctime[80];
     ts = *gmtime(&rawtime);
-    strftime(ctime, sizeof(ctime), "%m-%d-%Y %H:%M:%S" , &ts);
+    strftime(ctime, sizeof(ctime), "%m/%d/%y %H:%M:%S" , &ts);
 
     rawtime = (time_t) inode->i_mtime;
     char mtime[80];
     ts = *gmtime(&rawtime);
-    strftime(mtime, sizeof(mtime), "%m-%d-%Y %H:%M:%S" , &ts);
+    strftime(mtime, sizeof(mtime), "%m/%d/%y %H:%M:%S" , &ts);
 
     rawtime = (time_t) inode->i_atime;
     char atime[80];
     ts = *gmtime(&rawtime);
-    strftime(atime, sizeof(atime), "%m-%d-%Y %H:%M:%S" , &ts);
+    strftime(atime, sizeof(atime), "%m/%d/%y %H:%M:%S" , &ts);
 
     __u32 size = inode->i_size;
     __u16 mode12 = mode & 0xFFF;            /* determine mode */
