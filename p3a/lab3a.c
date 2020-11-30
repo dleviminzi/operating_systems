@@ -144,7 +144,6 @@ void indirect_block_helper(int lev_indirect, int block_num, int inode_num, int l
     exit(ERROR);
   }
 
-  int logical_offset;
   //process the buffer
   //read each block entry one at a time
   int i;
@@ -152,26 +151,20 @@ void indirect_block_helper(int lev_indirect, int block_num, int inode_num, int l
     {
       __u32 block_entry = buff_block[i];
       if(block_entry != 0)
-	{
-	  //determine logical block offset
-	  if(lev_indirect == 0)
-	    //we are looking at a data block
-	    logical_offset = block_entry;
-
-	  else
-	    logical_offset = base_block;
-	      
-	  fprintf(stdout, "INDIRECT,%d,%d,%d,%d,%d\n", inode_num, lev_indirect, logical_offset, lower_lev_block, block_entry);
+	{    
+	  fprintf(stdout, "INDIRECT,%d,%d,%d,%d,%d\n", inode_num, lev_indirect, base_block, lower_lev_block, block_entry);
 	  //follow block recursively
 	  if(lev_indirect != 1)
 	    indirect_block_helper(lev_indirect - 1, block_entry, inode_num, block_entry, base_block);
-
-	  //update the base block depending on the level of indirection
-	  if(lev_indirect == 1)
-	    base_block += 256;
-	  else if(lev_indirect == 2)
-	    base_block += 256*256;
 	}
+       //update the base block depending on the level of indirection
+      if(lev_indirect == 1)
+	base_block += 1;
+      else if(lev_indirect == 2)
+	base_block += 256;
+      else if(lev_indirect == 3)
+	base_block += 256*256;
+
     }
 }
   
@@ -181,8 +174,8 @@ void indirect_blocks(struct ext2_inode *inode, int inodeNum)
   __u32 ind_block = inode->i_block[EXT2_IND_BLOCK];
   if(ind_block != 0)
     {
-      int logical_offset = 13;
-      indirect_block_helper(1, ind_block, inodeNum, ind_block, logical_offset);
+      int base = 12;
+      indirect_block_helper(1, ind_block, inodeNum, ind_block, base);
     }
 
   //process double indirect block
@@ -190,17 +183,16 @@ void indirect_blocks(struct ext2_inode *inode, int inodeNum)
   if(dind_block != 0)
     {
       //logical offset is first data block reachable
-      int logical_offset = 13 + 256;
-      indirect_block_helper(2, dind_block, inodeNum, dind_block, logical_offset);
+      int base = 12 + 256;
+      indirect_block_helper(2, dind_block, inodeNum, dind_block, base);
     }
   
   //process triple indirect block
   __u32 tind_block = inode->i_block[EXT2_TIND_BLOCK];
   if(tind_block != 0)
     {
-      //logical offset is the first data block reachable
-      int logical_offset = 13 + 256 + (256*256);
-      indirect_block_helper(3, tind_block, inodeNum, tind_block, logical_offset);
+      int base = 12 + 256 + (256*256);
+      indirect_block_helper(3, tind_block, inodeNum, tind_block, base);
     }
 }
 
