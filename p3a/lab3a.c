@@ -7,8 +7,8 @@
 #include <math.h>
 #include "ext2_fs.h"
 
-
-#define ERROR 1
+#define ERROR 2
+#define BAD_ARGS 1
 #define SUCCESS 0
 
 struct ext2_super_block *superBlock;
@@ -273,12 +273,15 @@ int main(int argc, char *argv[]) {
     /* argument handling */
     if (argc < 2 || argc > 2) {
         fprintf(stderr, "Must pass exactly one img file argument.\n");
-        exit(ERROR);
+        exit(BAD_ARGS);
     }
 
     /* allocating superBlock object (will be populated using pread) */
-    superBlock = malloc(sizeof(struct ext2_super_block));
-
+    struct ext2_super_block superBlockStruct;
+    superBlock = &superBlockStruct;
+    //superBlock = malloc(sizeof(struct ext2_super_block));
+    
+    
     /* opening img and reading super block into object created above */
     imgFD = open(argv[1], O_RDONLY);
 
@@ -291,7 +294,7 @@ int main(int argc, char *argv[]) {
     if(superBlock->s_magic != EXT2_SUPER_MAGIC)
       {
 	fprintf(stderr, "Corrupted superblock\n");
-	free(superBlock);
+	//free(superBlock);
         exit(ERROR);
       }
 
@@ -305,12 +308,14 @@ int main(int argc, char *argv[]) {
     __u32 inode_count = superBlock->s_inodes_count;
 
     /* collect block group description */
-    struct ext2_group_desc *group_desc = malloc(sizeof(struct ext2_group_desc));
+    struct ext2_group_desc group_desc_struct;
+    struct ext2_group_desc *group_desc = &group_desc_struct;
+    //struct ext2_group_desc *group_desc = malloc(sizeof(struct ext2_group_desc));
     if(pread(imgFD, (void *) group_desc, sizeof(struct ext2_group_desc), 1024 + bSize) < 1)
       {
 	fprintf(stderr, "Failed to load group descriptors into memory\n");
-	free(group_desc);
-	free(superBlock);
+	//free(group_desc);
+	//free(superBlock);
 	exit(ERROR);
       }
     
@@ -323,8 +328,8 @@ int main(int argc, char *argv[]) {
     char buff_block[bSize];
     if(pread(imgFD, (void*)buff_block, bSize, block_bitmap_offset + 1024) < 1){
       fprintf(stderr, "Failed to read block bitmap\n");
-      free(group_desc);
-      free(superBlock);
+      //free(group_desc);
+      //free(superBlock);
       exit(ERROR);
     }
 
@@ -338,8 +343,8 @@ int main(int argc, char *argv[]) {
     char buff_inode[bSize];
     if(pread(imgFD, (void*)buff_inode, bSize, inode_bitmap_offset + 1024) < 1){
       fprintf(stderr, "Failed to read inode bitmap\n");
-      free(group_desc);
-      free(superBlock);
+      //free(group_desc);
+      //free(superBlock);
       exit(ERROR);
     }
 
@@ -360,8 +365,8 @@ int main(int argc, char *argv[]) {
         if (pread(imgFD, &inode, sizeof(struct ext2_inode), 
                   inodeTable + (inodeIndex * sizeInode)) < 1) {
             fprintf(stderr, "Failed to read Inode from table.\n");
-            free(group_desc);
-            free(superBlock);
+            //free(group_desc);
+            //free(superBlock);
             exit(ERROR);
         } 
 
