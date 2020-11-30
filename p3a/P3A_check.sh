@@ -287,4 +287,4 @@ done
 echo
 
 # delete temp files, report errors, and exit
-cleanup $$ $errors
+#cleanup $$ $errors
