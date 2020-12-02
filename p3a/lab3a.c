@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <math.h>
+#include <errno.h>
 #include "ext2_fs.h"
 
 #define ERROR 2
@@ -284,6 +285,12 @@ int main(int argc, char *argv[]) {
     
     /* opening img and reading super block into object created above */
     imgFD = open(argv[1], O_RDONLY);
+
+    if(imgFD < 0)
+      {
+	fprintf(stderr, "Failed to open file\n");
+	exit(BAD_ARGS);
+      }
 
     if (pread(imgFD, (void *) superBlock, sizeof(struct ext2_super_block), 1024) < 1) {
         fprintf(stderr, "Failed to load superblock into memory\n");
