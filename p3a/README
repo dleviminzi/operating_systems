@@ -1,6 +1,6 @@
-NAME: Clement Decker, Daniel Levi-Minzi
-EMAIL: clement.decker18@gmail.com
-ID: 305101238
+Name: Clement Decker, Daniel Levi-Minzi
+EMAIL: clement.decker18@gmail.com, dleviminzi@protonmail.com
+ID: 305101238, 004923946
 
 arg handling                [x]
 superblock summary          [x]
@@ -9,4 +9,4 @@ free block entries          [x]
 free I-node entries         [x]
 I-node summary              [x]
 directory entries           [x]
-indirect block references   [ ]
+indirect block references   [x]
