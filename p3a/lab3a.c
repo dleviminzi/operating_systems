@@ -1,3 +1,7 @@
+//NAME: Clement Decker, Daniel Levi-Minzi
+//EMAIL: clement.decker18@gmail.com, dleviminzi@protonmail.com
+//ID: 305101238, 004923946
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
