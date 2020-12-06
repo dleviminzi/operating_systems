@@ -233,6 +233,36 @@ def block_check(file_lines, max_block_num, min_block_num, free_blocks):
             print("ALLOCATED BLOCK " + str(i) + " ON FREELIST")
         elif(i not in alloc_blocks and i not in free_blocks):
             print("UNREFERENCED BLOCK " + str(i))
+
+def inode_check(inode_bitmap, alloc_inodes, inode_count):
+    """ Inode allocation audits
+
+    1. Check to ensure that inodes reported as unallocated are not in fact 
+    allocated (in the alloc_inodes set).
+
+    2. Check to ensure that all of the inodes not reported as allocated are 
+    properly reported as unallocated (not in alloc_inodes => in inode_bitmap).
+
+    Performance: Bad, O(n^2). Could be made better, by converting into lists
+    and merging the lists, while counting discrepancies and skipped numbers. 
+
+    Args:
+        inode_bitmap (set(int)): inode numbers of IFREE csv lines
+        alloc_inodes (set(int)): inode numbers of INODE and INDIRECT lines
+        inode_count (int): number of inodes as reported by SUPERBLOCK line
+    """
+
+    for free_inode in inode_bitmap:
+        if (free_inode in alloc_inodes):
+            print("ALLOCATED INODE " + str(free_inode) + " ON FREELIST")
+
+    inode = 11
+    while inode < inode_count:
+        if inode not in alloc_inodes and inode not in inode_bitmap:
+            print("UNALLOCATED INODE " + str(inode) + " NOT ON FREELIST")
+
+        inode = inode + 1
+
 def main():
     if(len(sys.argv) != 2):
         sys.stderr.write("Error: must supply one argument")
@@ -287,7 +317,16 @@ def main():
             group_summary = line
             if(superblock != ""):
                 min_block_num = calc_min_block(superblock, group_summary)           
+
     block_check(file_lines, max_block_num, min_block_num, block_bitmap)
+
+    # performing inode check
+    inode_count = int(superblock.split(",")[2])
+    inode_check(inode_bitmap, alloc_inodes, inode_count)
+
+    # performing directory check
+
+
 
 if __name__ == "__main__":
     main()
