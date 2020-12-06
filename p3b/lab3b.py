@@ -66,92 +66,183 @@ def ignore_file(line):
     else:
         return False
 
+def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
+    #first check if this is a symbolic link with short length
+    if(ignore_file(line)):
+        return
 
-#inode consistency checker
-#def inode_check(file_lines, free_inodes, alloc_inodes):
-        
+    #check each of the block pointers
+    pointers_found = 0
+    end_index = len(line)
+    while pointers_found < 15:
+        start_index = line.rfind(",", 0, end_index) + 1
+        pointer = int(line[start_index: end_index])
+        end_index = start_index - 1
+        #check if the block is a duplicate entry
+        duplicate = False
+        if(alloc_blocks[pointer] > 1):
+            duplicate = True
+        if((pointer < min_block_num or pointer > max_block_num or duplicate) and pointer != 0):
+            #print out an error message
+            offset = 0
+            error_type = ""
+            if(pointer < min_block_num and pointer > 0):
+                error_type = "RESERVED "
+            elif(pointer < 0 or pointer > max_block_num):
+                error_type = "INVALID "
+            if(pointers_found == 0):
+                #we are looking at a triple indirect block
+                offset = 65804
+            elif(pointers_found == 1):
+                #we are looking at a double indirect block
+                offset = 268
+            elif(pointers_found == 2):
+                #we are looking at an indirect block
+                offset = 12
+            else:
+                offset = 15 - pointers_found - 1
+            start_inode = line.find(",") + 1
+            end_inode = line.find(",", start_inode)
+            inode_num = int(line[start_inode: end_inode])
+            #print out different message depending on level of indirection
+            if(offset < 12):
+                #direct block
+                if(duplicate):
+                    print("DUPLICATE" + " BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+                if(error_type != ""):
+                    print(error_type + "BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+
+            elif(offset == 12):
+                #indirect block
+                if(duplicate):
+                    print("DUPLICATE " + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+                if(error_type != ""):
+                    print(error_type + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+            elif(offset == 268):
+                if(duplicate):
+                    print("DUPLICATE " + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+                if(error_type != ""):
+                    print(error_type + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+
+            elif(offset == 65804):
+                if(duplicate):
+                    print("DUPLICATE " + "TRIPLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+                if(error_type != ""):
+                    print(error_type + "TRIPLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+
+        pointers_found += 1
+
+def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
+    #scan the block to check if it is valid
+    start_index = line.rfind(",") + 1
+    pointer = int(line[start_index:])
+    #check if the block is a duplicate
+    duplicate = False
+    if(alloc_blocks[pointer] > 1):
+        duplicate = True
+    if((pointer < min_block_num or pointer > max_block_num or duplicate) and pointer != 0):
+        error_type = ""
+        if(pointer < min_block_num and pointer > 0):
+            error_type = "RESERVED "
+        else:
+            error_type = "INVALID "
+
+        #determine the logical offset of the block and the inode 
+        occurrences = 0
+        start_index = 0
+        inode = 0
+        occurrence = 0
+        lev_indirection = 0
+        while occurrence < 3:
+            if(occurrence == 1):
+                #find the inode number
+                end_index = line.find(",", start_index)
+                inode = int(line[start_index: end_index])
+            if(occurrence == 2):
+                end_index = line.find(",", start_index)
+                lev_indirection = int(line[start_index: end_index])
+            start_index = line.find(",", start_index) + 1
+            occurrence += 1
+            
+        end_index = line.find(",", start_index)
+        offset = int(line[start_index: end_index])
+
+        #print error message depending on level of indirection
+        #we can determine the level of indirection by the 
+        if(lev_indirection == 1):
+            #direct block
+            if(duplicate):
+                print("DUPLICATE " + "DIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+            if(error_type != ""):
+                print(error_type + "DIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+
+        if(lev_indirection == 2):
+            #indirect block
+            if(duplicate):
+                print("DUPLICATE " + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+            if(error_type != ""):
+                print(error_type + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+
+        if(lev_indirection == 3):
+            #double indirect block
+            if(duplicate):
+                print("DUPLICATE " + "DOUBLE DIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+            if(error_type != ""):
+                print(error_type + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
+
+    
 #block consistency checker
-def block_check(file_lines, max_block_num, min_block_num):
+def block_check(file_lines, max_block_num, min_block_num, free_blocks):
     alloc_blocks = {}
     #scan the file once to determine if there are duplicate blocks
-
     for line in file_lines:
+        if("INDIRECT" in line):
+            #add the block pointer to the allocated blocks list
+            start_index = line.rfind(",") + 1
+            pointer = int(line[start_index:])
+            if(pointer in alloc_blocks):
+                alloc_blocks[pointer] += 1
+            else:
+                alloc_blocks[pointer] = 1
         if("INODE" in line):
-            #first check if this is a symbolic link with short length
             if(ignore_file(line)):
                 continue
-
-            #check each of the block pointers
             pointers_found = 0
             end_index = len(line)
-            while pointers_found < 15:
+            while(pointers_found < 15):
                 start_index = line.rfind(",", 0, end_index) + 1
                 pointer = int(line[start_index: end_index])
-                #add the block to the allocated blocks dictionary if the value is nonzero
-                duplicate = False
-                if(pointer != 0):
-                    #check if the pointer is already in the dictionary
-                    if pointer in alloc_blocks:
-                        alloc_blocks[pointer] += 1
-                        duplicate = True
-                    else:
-                        alloc_blocks[pointer] = 1
-
                 end_index = start_index - 1
-                error_type = ""
-                if(((pointer < min_block_num or pointer > max_block_num) and pointer != 0) or duplicate):
-                    #print out an error message
-                    offset = 0
-                    if(pointer < min_block_num and pointer > 0):
-                        error_type = "RESERVED BLOCK "
-                    else:
-                        error_type = "INVALID BLOCK "
-                    if(pointers_found == 0):
-                        #we are looking at a triple indirect block
-                        offset = 65804
-                    elif(pointers_found == 1):
-                        #we are looking at a double indirect block
-                        offset = 268
-                    elif(pointers_found == 2):
-                        #we are looking at an indirect block
-                        offset = 12
-                    else:
-                        offset = 15 - pointers_found - 1
-                    start_inode = line.find(",") + 1
-                    end_inode = line.find(",", start_inode)
-                    inode_num = int(line[start_inode: end_inode])
-                    #print out different message depending on level of indirection
-                    if(offset < 12):
-                        #direct block
-                         print(error_type + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
-                         
-                    elif(offset == 12):
-                        #indirect block
-                        print(error_type + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
-                    elif(offset == 268):
-                        print(error_type + "DOUBLE INDIRECT " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
-                    elif(offset == 65804):
-                        print(error_type + "TRIPLE INDIRECT " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
+                if(pointer in alloc_blocks):
+                    alloc_blocks[pointer] += 1
+                else:
+                    alloc_blocks[pointer] = 1
                 pointers_found += 1
-    
-    #finally confirm that each block is allocated to exactly one file
-    for i in range(max_block_num):
-        if(i in alloc_blocks and i in free_blocks):
-            print("ALLOCATED BLOCK " + str(i) + " ON FREELIST")
-        else if(i not in alloc_blocks and i not in free_blocks):
-            print("UNREFERENCED BLOCK " + str(i))
 
-    
+    for line in file_lines:
+        if("INDIRECT" in line):
+            indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks)
+        if("INODE" in line):
+            inode_entry_check(line, max_block_num, min_block_num, alloc_blocks)
+
+    #make sure every valid block is either on the free list or allocated to one file
+    for i in range(max_block_num):
+        if(i < min_block_num):
+            continue
+        elif(i in alloc_blocks and i in free_blocks):
+            print("ALLOCATED BLOCK " + str(i) + " ON FREELIST")
+        elif(i not in alloc_blocks and i not in free_blocks):
+            print("UNREFERENCED BLOCK " + str(i))
 def main():
     if(len(sys.argv) != 2):
-        print("Error: must supply one argument")
+        sys.stderr.write("Error: must supply one argument")
         sys.exit(1)
 
     file_name = None;
     try:
         file_name = open(sys.argv[1], "r");
     except:
-        print("Invalid file name")
+        sys.stderr.write("Invalid file name")
         sys.exit(1)
 
     #store the block bitmap and inode bitmaps as sets
@@ -195,9 +286,8 @@ def main():
         elif("GROUP" in line):
             group_summary = line
             if(superblock != ""):
-                min_block_num = calc_min_block(superblock, group_summary)
-
-    block_check(file_lines, max_block_num, min_block_num)
+                min_block_num = calc_min_block(superblock, group_summary)           
+    block_check(file_lines, max_block_num, min_block_num, block_bitmap)
 
 if __name__ == "__main__":
     main()
