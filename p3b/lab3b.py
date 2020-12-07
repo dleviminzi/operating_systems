@@ -310,9 +310,8 @@ def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, in
             elif (name == "'..'"): 
                 # Find the dir inodes that have the parent inode as their inode
                 # => they link down into the the dir we're in
-                descent = dir_inodes[str(prnt)]
 
-                for j in range(len(descent)):
+                for j in range(len(dir_inodes[entry])):
                     # We wish to verify that the folder in here that has the 
                     # current prnt as it's inode is the one we return to.
                     dir_j = dir_inodes[entry][j]
