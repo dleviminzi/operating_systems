@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+from collections import defaultdict
 
 #helper functions
 def calc_max_block(superblock):
@@ -257,11 +258,71 @@ def inode_check(inode_bitmap, alloc_inodes, inode_count):
             print("ALLOCATED INODE " + str(free_inode) + " ON FREELIST")
 
     inode = 11
-    while inode < inode_count:
+    while inode <= inode_count:
         if inode not in alloc_inodes and inode not in inode_bitmap:
             print("UNALLOCATED INODE " + str(inode) + " NOT ON FREELIST")
 
         inode = inode + 1
+
+def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, inode_count):
+    """ Directory Consistency Audits
+
+    1. Check to ensure that the links reported are accurate for each inode.
+
+    2. Check to make sure that directory inodes are valid/allocated.
+
+    3. Check to make sure that directories map back on themselves or to their 
+    parent directory.
+
+    Performance: O(n + d^2) where n is the inode entries and d is the directory 
+    entries. Might be able to improve performance by combining checks. Method
+    for checking the '..' accuracy is questionable at best. 
+
+    Args:
+        inode_reported_lnk (dir(int:int)): maps inode number to reported link count from csv
+        inode_actual_lnk (dir(int:int)): maps inode number to counted references
+        alloc_inodes (set(int)): inode numbers of INODE and INDIRECT lines 
+        dir_inodes (dir(int:set)): stores inode, prnt_inode, name for each DIRENT
+        inode_count (int): number of inodes as reported by SUPERBLOCK line.
+    """
+    # loop to check that the inode links and reported inode links are equal
+    for inode in alloc_inodes:
+        if (inode <= inode_count):
+            if (inode_reported_lnk[inode] != inode_actual_lnk[inode]):
+                print("INODE " + str(inode) + " HAS " + str(inode_actual_lnk[inode]) + " LINKS BUT LINKCOUNT IS " + str(inode_reported_lnk[inode]))
+
+    # checking direcotyr inodes and start links
+    for entry in dir_inodes:
+        for i in range(len(dir_inodes[entry])):
+            dir_i = dir_inodes[entry][i]
+
+            prnt = dir_i["prnt_inode"]
+            inode = dir_i["inode"]
+            name = dir_i["name"]
+
+            if (inode < 1 or inode > inode_count):
+                print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " INVALID INODE " + str(inode))
+            elif (inode not in alloc_inodes):
+                print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " UNALLOCATED INODE " + str(inode))
+            elif (name == "'.'"):
+                if (inode != prnt):
+                    print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " LINK TO INODE " + str(inode) + " SHOULD BE " + str(prnt)) 
+            elif (name == "'..'"): 
+                # Find the dir inodes that have the parent inode as their inode
+                # => they link down into the the dir we're in
+                descent = dir_inodes[str(prnt)]
+
+                for j in range(len(descent)):
+                    # We wish to verify that the folder in here that has the 
+                    # current prnt as it's inode is the one we return to.
+                    dir_j = dir_inodes[entry][j]
+
+                    j_name = dir_j["name"]
+                    j_dir = dir_j["prnt_inode"] 
+
+                    if (j_name != "'..'" and j_dir != inode):
+                        print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " LINK TO INODE " + str(inode) + " SHOULD BE " + str(j_dir))
+
 
 def main():
     if(len(sys.argv) != 2):
@@ -285,11 +346,20 @@ def main():
 
     max_block_num = -1;
     min_block_num = -1;
+
     #loop through the file, extracting all information we will need later
     #store each line in an array so that we can use it later
     file_lines = []
     superblock = ""
     group_summary = ""
+
+    # map of inode : linkcount
+    # map of inode : ref_links
+    # map of dir_inode : dir_name
+    inode_reported_lnk = defaultdict(int)
+    inode_actual_lnk = defaultdict(int)
+    dir_inodes = defaultdict(list)
+
     for line in file_name:
         file_lines.append(line)
         if("BFREE" in line):
@@ -304,6 +374,11 @@ def main():
             start_index = line.find(",") + 1;
             end_index = line.find(",", start_index)
             alloc_inodes.add(int(line[start_index: end_index]))
+
+            # log the reported link count for the inode
+            i_num = int(line.split(',')[1])
+            lnk_cnt = int(line.split(',')[6])
+            inode_reported_lnk[i_num] = lnk_cnt 
         elif("INDIRECT" in line):
             start_index = line.rfind(",") + 1;
             alloc_inodes.add(int(line[start_index:]))
@@ -311,12 +386,28 @@ def main():
             #calculate the highest possible block number
             superblock = line
             max_block_num = calc_max_block(line)
+
             if(group_summary != ""):
                 min_block_num = calc_min_block(superblock, group_summary)
         elif("GROUP" in line):
             group_summary = line
+
             if(superblock != ""):
                 min_block_num = calc_min_block(superblock, group_summary)           
+        elif("DIRENT" in line):
+            dir_entry = line.split(',')
+            inode_actual_lnk[int(dir_entry[3])] += 1
+
+            # key to each dir is name + parent dir (guarentees unique)
+            key = dir_entry[3]
+
+            details = {
+                "name" : dir_entry[6][:-1],
+                "prnt_inode" : int(dir_entry[1]),
+                "inode" : int(dir_entry[3])
+            }
+
+            dir_inodes[key].append(details)
 
     block_check(file_lines, max_block_num, min_block_num, block_bitmap)
 
@@ -325,6 +416,7 @@ def main():
     inode_check(inode_bitmap, alloc_inodes, inode_count)
 
     # performing directory check
+    dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, inode_count)
 
 
 
