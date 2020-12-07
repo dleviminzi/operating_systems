@@ -68,6 +68,7 @@ def ignore_file(line):
         return False
 
 def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
+    ret_val = True
     #first check if this is a symbolic link with short length
     if(ignore_file(line)):
         return
@@ -83,7 +84,9 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
         duplicate = False
         if(alloc_blocks[pointer] > 1):
             duplicate = True
+            ret_val = False
         if((pointer < min_block_num or pointer > max_block_num or duplicate) and pointer != 0):
+            ret_val = False
             #print out an error message
             offset = 0
             error_type = ""
@@ -133,7 +136,10 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
 
         pointers_found += 1
 
+    return(ret_val)
+
 def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
+    ret_val = True
     #scan the block to check if it is valid
     start_index = line.rfind(",") + 1
     pointer = int(line[start_index:])
@@ -141,7 +147,9 @@ def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
     duplicate = False
     if(alloc_blocks[pointer] > 1):
         duplicate = True
+        ret_val = False
     if((pointer < min_block_num or pointer > max_block_num or duplicate) and pointer != 0):
+        ret_val = False
         error_type = ""
         if(pointer < min_block_num and pointer > 0):
             error_type = "RESERVED "
@@ -191,10 +199,13 @@ def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
             if(error_type != ""):
                 print(error_type + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode) + " AT OFFSET " + str(offset))
 
+    return ret_val
+
     
 #block consistency checker
 def block_check(file_lines, max_block_num, min_block_num, free_blocks):
     alloc_blocks = {}
+    ret_val = True
     #scan the file once to determine if there are duplicate blocks
     for line in file_lines:
         if("INDIRECT" in line):
@@ -222,9 +233,11 @@ def block_check(file_lines, max_block_num, min_block_num, free_blocks):
 
     for line in file_lines:
         if("INDIRECT" in line):
-            indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks)
+            if(indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks) == False):
+                ret_val = False
         if("INODE" in line):
-            inode_entry_check(line, max_block_num, min_block_num, alloc_blocks)
+            if(inode_entry_check(line, max_block_num, min_block_num, alloc_blocks) == False):
+                ret_val = False
 
     #make sure every valid block is either on the free list or allocated to one file
     for i in range(max_block_num):
@@ -232,8 +245,12 @@ def block_check(file_lines, max_block_num, min_block_num, free_blocks):
             continue
         elif(i in alloc_blocks and i in free_blocks):
             print("ALLOCATED BLOCK " + str(i) + " ON FREELIST")
+            ret_val = False
         elif(i not in alloc_blocks and i not in free_blocks):
             print("UNREFERENCED BLOCK " + str(i))
+            ret_val = False
+
+    return ret_val
 
 def inode_check(inode_bitmap, alloc_inodes, inode_count):
     """ Inode allocation audits
@@ -253,13 +270,16 @@ def inode_check(inode_bitmap, alloc_inodes, inode_count):
         inode_count (int): number of inodes as reported by SUPERBLOCK line
     """
 
+    ret_val = True
     for free_inode in inode_bitmap:
         if (free_inode in alloc_inodes):
+            ret_val = False
             print("ALLOCATED INODE " + str(free_inode) + " ON FREELIST")
 
     inode = 11
     while inode <= inode_count:
         if inode not in alloc_inodes and inode not in inode_bitmap:
+            ret_val = False
             print("UNALLOCATED INODE " + str(inode) + " NOT ON FREELIST")
 
         inode = inode + 1
@@ -285,10 +305,13 @@ def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, in
         dir_inodes (dir(int:set)): stores inode, prnt_inode, name for each DIRENT
         inode_count (int): number of inodes as reported by SUPERBLOCK line.
     """
+
+    ret_val = True
     # loop to check that the inode links and reported inode links are equal
     for inode in alloc_inodes:
         if (inode <= inode_count):
             if (inode_reported_lnk[inode] != inode_actual_lnk[inode]):
+                ret_val = False
                 print("INODE " + str(inode) + " HAS " + str(inode_actual_lnk[inode]) + " LINKS BUT LINKCOUNT IS " + str(inode_reported_lnk[inode]))
 
     # checking direcotyr inodes and start links
@@ -301,11 +324,14 @@ def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, in
             name = dir_i["name"]
 
             if (inode < 1 or inode > inode_count):
+                ret_val = False
                 print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " INVALID INODE " + str(inode))
             elif (inode not in alloc_inodes):
+                ret_val = False
                 print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " UNALLOCATED INODE " + str(inode))
             elif (name == "'.'"):
                 if (inode != prnt):
+                    ret_val = False
                     print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " LINK TO INODE " + str(inode) + " SHOULD BE " + str(prnt)) 
             elif (name == "'..'"): 
                 # Find the dir inodes that have the parent inode as their inode
@@ -321,8 +347,10 @@ def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, in
                     j_dir = dir_j["prnt_inode"] 
 
                     if (j_name != "'..'" and j_dir != inode):
+                        ret_val = False
                         print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " LINK TO INODE " + str(inode) + " SHOULD BE " + str(j_dir))
 
+    return ret_val
 
 def main():
     if(len(sys.argv) != 2):
@@ -409,14 +437,21 @@ def main():
 
             dir_inodes[key].append(details)
 
-    block_check(file_lines, max_block_num, min_block_num, block_bitmap)
+    #performing block_checks
+    ret_val = 0
+    if(block_check(file_lines, max_block_num, min_block_num, block_bitmap) == False):
+        ret_val = 2
 
     # performing inode check
     inode_count = int(superblock.split(",")[2])
-    inode_check(inode_bitmap, alloc_inodes, inode_count)
+    if(inode_check(inode_bitmap, alloc_inodes, inode_count) == False):
+        ret_val = 2
 
     # performing directory check
-    dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, inode_count)
+    if(dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, inode_count) == False):
+        ret_val = 2
+
+    sys.exit(ret_val)
 
 
 
