@@ -1,3 +1,9 @@
 NAME: Clement Decker, Daniel Levi-Minzi
 EMAIL: clement.decker18@gmail.com, dleviminzi@protonmail.com
 ID: 305101238, 004923946
+
+lab3b.py    -> contains code to perform the specified audits of blocks, inodes, and directories
+
+Makefile    -> build, dist, and clean instructions
+
+README      -> contains what you are reading and you are reading what it contains
