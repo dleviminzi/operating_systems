@@ -4,7 +4,7 @@ default: lab3b
 lab3b: lab3b.py
 	@touch lab3b
 	@chmod +x lab3b
-	@echo '#!/usr/bin/bash' >> lab3b
+	@echo '#!/usr/bin/bash' > lab3b
 	@echo './lab3b.py $$1' >> lab3b
 
 dist: lab3b.py Makefile README
