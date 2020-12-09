@@ -4,6 +4,11 @@ import sys
 from collections import defaultdict
 
 #helper functions
+def calc_block_size(superblock):
+    data = superblock.split(",")
+    block_size = int(data[3])
+    return block_size
+
 def calc_max_block(superblock):
     start_index = superblock.find(",") + 1
     end_index = superblock.find(",", start_index)
@@ -67,11 +72,11 @@ def ignore_file(line):
     else:
         return False
 
-def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
+def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks, block_size):
     ret_val = True
     #first check if this is a symbolic link with short length
     if(ignore_file(line)):
-        return
+        return True
 
     #check each of the block pointers
     pointers_found = 0
@@ -82,7 +87,7 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
         end_index = start_index - 1
         #check if the block is a duplicate entry
         duplicate = False
-        if(alloc_blocks[pointer] > 1):
+        if(alloc_blocks[pointer] > 1 and pointer != 0):
             duplicate = True
             ret_val = False
         if((pointer < min_block_num or pointer > max_block_num or duplicate) and pointer != 0):
@@ -96,20 +101,21 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
                 error_type = "INVALID "
             if(pointers_found == 0):
                 #we are looking at a triple indirect block
-                offset = 65804
+                offset = (block_size/4)*(block_size/4) + (block_size/4) + 12
             elif(pointers_found == 1):
                 #we are looking at a double indirect block
-                offset = 268
+                offset = (block_size/4) + 12
             elif(pointers_found == 2):
                 #we are looking at an indirect block
                 offset = 12
             else:
-                offset = 15 - pointers_found - 1
+                #we are looking at a direct block
+                offset = 0
             start_inode = line.find(",") + 1
             end_inode = line.find(",", start_inode)
             inode_num = int(line[start_inode: end_inode])
             #print out different message depending on level of indirection
-            if(offset < 12):
+            if(offset == 0):
                 #direct block
                 if(duplicate):
                     print("DUPLICATE" + " BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
@@ -122,13 +128,13 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
                     print("DUPLICATE " + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
                 if(error_type != ""):
                     print(error_type + "INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
-            elif(offset == 268):
+            elif(offset == (block_size/4) + 12):
                 if(duplicate):
                     print("DUPLICATE " + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
                 if(error_type != ""):
                     print(error_type + "DOUBLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
 
-            elif(offset == 65804):
+            elif(offset == (block_size/4)*(block_size/4) + (block_size/4) + 12):
                 if(duplicate):
                     print("DUPLICATE " + "TRIPLE INDIRECT BLOCK " + str(pointer) + " IN INODE " + str(inode_num) + " AT OFFSET " + str(offset))
                 if(error_type != ""):
@@ -136,7 +142,7 @@ def inode_entry_check(line, max_block_num, min_block_num, alloc_blocks):
 
         pointers_found += 1
 
-    return(ret_val)
+    return ret_val
 
 def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
     ret_val = True
@@ -203,7 +209,7 @@ def indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks):
 
     
 #block consistency checker
-def block_check(file_lines, max_block_num, min_block_num, free_blocks):
+def block_check(file_lines, max_block_num, min_block_num, free_blocks, block_size):
     alloc_blocks = {}
     ret_val = True
     #scan the file once to determine if there are duplicate blocks
@@ -236,7 +242,7 @@ def block_check(file_lines, max_block_num, min_block_num, free_blocks):
             if(indirect_entry_check(line, max_block_num, min_block_num, alloc_blocks) == False):
                 ret_val = False
         if("INODE" in line):
-            if(inode_entry_check(line, max_block_num, min_block_num, alloc_blocks) == False):
+            if(inode_entry_check(line, max_block_num, min_block_num, alloc_blocks, block_size) == False):
                 ret_val = False
 
     #make sure every valid block is either on the free list or allocated to one file
@@ -283,6 +289,8 @@ def inode_check(free_list, inodes, inode_count):
             print("UNALLOCATED INODE " + str(inode) + " NOT ON FREELIST")
 
         inode = inode + 1
+
+    return ret_val
 
 def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, parent_lookup, inode_count):
     """ Directory Consistency Audits
@@ -341,6 +349,8 @@ def dir_check(inode_reported_lnk, inode_actual_lnk, alloc_inodes, dir_inodes, pa
                     ret_val = False
                     print("DIRECTORY INODE " + str(prnt) + " NAME " + name + " LINK TO INODE " + str(inode) + " SHOULD BE " + str(prnt))
 
+    return ret_val
+
 def main():
     if(len(sys.argv) != 2):
         sys.stderr.write("Error: must supply one argument")
@@ -350,7 +360,7 @@ def main():
     try:
         file_name = open(sys.argv[1], "r");
     except:
-        sys.stderr.write("Invalid file name")
+        sys.stderr.write("Invalid file name\n")
         sys.exit(1)
 
     #store the block bitmap and inode bitmaps as sets
@@ -363,10 +373,11 @@ def main():
 
     max_block_num = -1;
     min_block_num = -1;
+    block_size = 0
 
     #loop through the file, extracting all information we will need later
     #store each line in an array so that we can use it later
-    file_lines = []
+    file_lines = file_name.readlines()
     superblock = ""
     group_summary = ""
 
@@ -380,8 +391,7 @@ def main():
     inodes = set()
     parent_lookup = {}
 
-    for line in file_name:
-        file_lines.append(line)
+    for line in file_lines:
         if("BFREE" in line):
             #extract the block number
             block_num = line[6:]
@@ -412,6 +422,8 @@ def main():
             superblock = line
             max_block_num = calc_max_block(line)
 
+            #determine the block size
+            block_size = calc_block_size(line)
             if(group_summary != ""):
                 min_block_num = calc_min_block(superblock, group_summary)
         elif("GROUP" in line):
@@ -439,7 +451,7 @@ def main():
 
     #performing block_checks
     ret_val = 0
-    if(block_check(file_lines, max_block_num, min_block_num, block_bitmap) == False):
+    if(block_check(file_lines, max_block_num, min_block_num, block_bitmap, block_size) == False):
         ret_val = 2
 
     # performing inode check
