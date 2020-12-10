@@ -258,7 +258,7 @@ def block_check(file_lines, max_block_num, min_block_num, free_blocks, block_siz
 
     return ret_val
 
-def inode_check(free_list, inodes, inode_count):
+def inode_check(free_list, inodes, inode_count, first_inode):
     """ Inode allocation audits
 
     1. Check to ensure that inodes reported as unallocated are not in fact 
@@ -282,7 +282,7 @@ def inode_check(free_list, inodes, inode_count):
             ret_val = False
             print("ALLOCATED INODE " + str(free_inode) + " ON FREELIST")
 
-    inode = 11
+    inode = first_inode
     while inode <= inode_count:
         if inode not in inodes and inode not in free_list:
             ret_val = False
@@ -391,6 +391,8 @@ def main():
     inodes = set()
     parent_lookup = {}
 
+    first_inode = 1
+
     for line in file_lines:
         if("BFREE" in line):
             #extract the block number
@@ -424,6 +426,10 @@ def main():
 
             #determine the block size
             block_size = calc_block_size(line)
+
+            # get first inode number
+            first_inode = int(superblock.split(",")[-1])
+
             if(group_summary != ""):
                 min_block_num = calc_min_block(superblock, group_summary)
         elif("GROUP" in line):
@@ -457,7 +463,7 @@ def main():
     # performing inode check
     inode_count = int(superblock.split(",")[2])
     
-    if(inode_check(free_list, inodes, inode_count) == False):
+    if(inode_check(free_list, inodes, inode_count, first_inode) == False):
         ret_val = 2
 
     # performing directory check
