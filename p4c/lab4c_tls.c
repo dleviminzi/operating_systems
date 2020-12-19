@@ -148,7 +148,6 @@ void command(char *cmd) {
         reporting = FALSE;
     }
     else if (strcmp(cmd, "START") == 0) {
-        fprintf(stderr, "HELLO");
         prnt(cmd, 0);
         reporting = TRUE;
     }
@@ -330,12 +329,12 @@ int main(int argc, char* argv[]) {
     pIn.fd = sock;
     pIn.events = POLLIN;
 
-    char *input;
-    input = (char *)malloc(1024 * sizeof(char));
+    char input[256];
     
     while(1) {
         poll(&pIn, 1, 0);
         if (pIn.revents & POLLIN) {
+            fprintf("HERE");
             handle_input(input);
         }
     }
