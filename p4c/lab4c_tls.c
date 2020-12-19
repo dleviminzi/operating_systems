@@ -53,7 +53,7 @@ void prnt(char *toPrint, int serv) {
     if (serv) {
         char prn[200];
         sprintf(prn, "%s\n", toPrint);
-        SSL_write(ssl, prn, strlen(prn) + 1);
+        SSL_write(ssl, prn, strlen(prn));
     }
     fprintf(stderr, "%s\n", toPrint);
     dprintf(logFD, "%s\n", toPrint);
