@@ -61,7 +61,7 @@ void printTime() {
     Time = localtime(&raw);
 
     char toPrint[160];
-    sprintf(toPrint, "%.2d:%.2d:%.2d %.1f", Time->tm_hour, Time->tm_min, Time->tm_sec);
+    sprintf(toPrint, "%.2d:%.2d:%.2d ", Time->tm_hour, Time->tm_min, Time->tm_sec);
     prnt(toPrint, SERV);
 }
 
