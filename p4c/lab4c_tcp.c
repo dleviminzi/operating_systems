@@ -89,11 +89,9 @@ double calcTemp(int temp) {
 
 void reportTemp(float convTemp) {
     printTime();
-
-    fprintf(stdout, "%.1f\n", convTemp);
-    if (logFD != -1 && reporting) {
-        dprintf(logFD, "%.1f\n", convTemp);
-    }
+    dprintf(sock, "%.1f\n", convTemp);
+    fprintf(stderr, "%.1f\n", convTemp);)
+    dprintf(logFD, "%.1f\n", convTemp);
 }
 
 /* thread function to gather temp and then wait */
