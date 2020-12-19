@@ -334,7 +334,6 @@ int main(int argc, char* argv[]) {
     while(1) {
         poll(&pIn, 1, 0);
         if (pIn.revents & POLLIN) {
-            fprintf("HERE");
             handle_input(input);
         }
     }
