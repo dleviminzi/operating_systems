@@ -54,16 +54,6 @@ void prnt(char *toPrint, int serv) {
     dprintf(logFD, "%s\n", toPrint);
 }
 
-void printTime() {
-    time_t raw;
-    struct tm* Time;
-    time(&raw);
-    Time = localtime(&raw);
-
-    char toPrint[160];
-    sprintf(toPrint, "%.2d:%.2d:%.2d ", Time->tm_hour, Time->tm_min, Time->tm_sec);
-    prnt(toPrint, SERV);
-}
 
 /* redirects newFD to targetFD */
 void fdRedirect(int newFD, int targetFD) {
@@ -117,12 +107,14 @@ void *getTemp(void *prd) {
 }
 
 void shtdwn() {
-    printTime();
+    time_t raw;
+    struct tm* Time;
+    time(&raw);
+    Time = localtime(&raw);
 
-    fprintf(stdout, "SHUTDOWN\n");
-    if (logFD != -1) {
-        dprintf(logFD, "SHUTDOWN\n");
-    } 
+    char toPrint[160];
+    sprintf(toPrint, "%.2d:%.2d:%.2d SHUTDOWN\n", Time->tm_hour, Time->tm_min, Time->tm_sec, convTemp);
+    prnt(toPrint, 0);
 
     mraa_aio_close(tempSensor);
     mraa_gpio_close(button);
