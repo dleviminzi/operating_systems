@@ -32,7 +32,7 @@ const int R0 = 100000;
 //int button;
 
 char scale;      /* temp in f or c */
-FILE *logFD;            /* file descriptor of logfile */
+int logFD;            /* file descriptor of logfile */
 int off;
 int reporting;
 int period;
@@ -52,7 +52,7 @@ void prnt(char *toPrint, int serv) {
         dprintf(sock, "%s\n", toPrint);
     }
     fprintf(stderr, "%s\n", toPrint);
-    fprintf(logFD, "%s\n", toPrint);
+    dprintf(logFD, "%s\n", toPrint);
 }
 
 void printTime() {
