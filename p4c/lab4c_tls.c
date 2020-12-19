@@ -289,7 +289,9 @@ int main(int argc, char* argv[]) {
         exit(ERROR);
     }
 
-    SSL_library_init();
+    if (SSL_library_init() < 0) {
+        fprintf(stderr, "Could not load SSL library");
+    }
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
