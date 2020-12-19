@@ -131,6 +131,10 @@ void shtdwn() {
 }
 
 void command(char *cmd) {
+    while (*cmd == ' ' || *cmd == '\t') {
+        cmd+;
+    }
+
     if (strcmp(cmd, "SCALE=F") == 0) {
         prnt(cmd, 0);
         scale = 'F';
@@ -169,6 +173,7 @@ void handle_input(char *input) {
     if (ret > 0) {
         input[ret] = 0;
     }
+    fprintf(stderr, "INPUT = %s\n", input)
     
     char *start = input;
 
@@ -181,7 +186,7 @@ void handle_input(char *input) {
 
         *end = 0;
 
-        fprintf(stderr, "handling %s\n", start);
+        fprintf(stderr, "SENDING =  %s\n", start);
 
         command(start);
         start = &end[1];
