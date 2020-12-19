@@ -43,7 +43,6 @@ int port = -1;
 char* host = "";
 int sock;
 
-struct hostnet *server;
 struct sockaddr_in serv_addr;
 struct hostent* serv_host;
 
@@ -115,7 +114,7 @@ void *getTemp(void *prd) {
     pthread_exit(NULL);
 }
 
-void shutdown() {
+void shtdwn() {
     printTime();
 
     fprintf(stdout, "SHUTDOWN\n");
@@ -153,7 +152,7 @@ void command(char *cmd) {
     }
     else if (strcmp(cmd, "OFF") == 0) {
         prnt(cmd, 0);
-        shutdown();
+        shtdwn();
     }
     else if (strncmp(cmd, "LOG", 3) == 0) {
         prnt(cmd, 0);
@@ -193,10 +192,6 @@ int main(int argc, char* argv[]) {
     logFD = -1;
     off = FALSE;
     reporting = FALSE;
-
-    struct pollfd inputPoll; /* specifying events to watch for */
-
-    char buff[BUFF_SIZE];
 
     /* getopt variables and options */
     int opt = 0;           
@@ -276,14 +271,14 @@ int main(int argc, char* argv[]) {
         exit(ERROR);
     }
     else {
-        server = gethostbyname(host);
+        serv_host = gethostbyname(host);
         
         if (server == NULL) {
             fprintf(stderr, "Host was not found.");
         }
     }
 
-    bzer((char *)&serv_addr, sizeof(serv_addr));
+    bzero((char *)&serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     bcopy((char *)(serv_host->h_addr), (char *)&serv_addr.sin_addr.s_addr, serv_host->h_length);
     serv_addr.sin_port = htons(port);
