@@ -51,7 +51,7 @@ SSL *ssl = NULL;
 
 void prnt(char *toPrint, int serv) {
     if (serv) {
-        char prn[160];
+        char prn[200];
         sprintf(prn, "%s\n", toPrint);
         SSL_write(ssl, prn, strlen(prn) + 1);
     }
@@ -148,6 +148,7 @@ void command(char *cmd) {
         reporting = FALSE;
     }
     else if (strcmp(cmd, "START") == 0) {
+        fprintf(stderr, "HELLO");
         prnt(cmd, 0);
         reporting = TRUE;
     }
