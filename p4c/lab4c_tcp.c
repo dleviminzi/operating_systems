@@ -273,7 +273,7 @@ int main(int argc, char* argv[]) {
     else {
         serv_host = gethostbyname(host);
         
-        if (server == NULL) {
+        if (serv_host == NULL) {
             fprintf(stderr, "Host was not found.");
         }
     }
