@@ -29,8 +29,6 @@ mraa_aio_context tempSensor;
 mraa_gpio_context button;
 const int B = 4275;               // B value of the thermistor
 const int R0 = 100000;
-//int tempSensor;
-//int button;
 
 char scale;      /* temp in f or c */
 int logFD;            /* file descriptor of logfile */
@@ -56,7 +54,9 @@ void prnt(char *toPrint, int serv) {
         SSL_write(ssl, prn, strlen(prn));
     }
     fprintf(stderr, "%s\n", toPrint);
-    dprintf(logFD, "%s\n", toPrint);
+    if (reporting) {
+        dprintf(logFD, "%s\n", toPrint);
+    }
 }
 
 
@@ -131,10 +131,6 @@ void shtdwn() {
 }
 
 void command(char *cmd) {
-    while (*cmd == ' ' || *cmd == '\t') {
-        cmd++;
-    }
-
     if (strcmp(cmd, "SCALE=F") == 0) {
         prnt(cmd, 0);
         scale = 'F';
@@ -173,7 +169,6 @@ void handle_input(char *input) {
     if (ret > 0) {
         input[ret] = 0;
     }
-    fprintf(stderr, "INPUT = %s\n", input);
     
     char *start = input;
 
@@ -185,8 +180,6 @@ void handle_input(char *input) {
         }
 
         *end = 0;
-
-        fprintf(stderr, "SENDING =  %s\n", start);
 
         command(start);
         start = &end[1];

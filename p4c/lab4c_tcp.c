@@ -51,7 +51,9 @@ void prnt(char *toPrint, int serv) {
         dprintf(sock, "%s\n", toPrint);
     }
     fprintf(stderr, "%s\n", toPrint);
-    dprintf(logFD, "%s\n", toPrint);
+    if (reporting) {
+        dprintf(logFD, "%s\n", toPrint);
+    }
 }
 
 
