@@ -132,7 +132,7 @@ void shtdwn() {
 
 void command(char *cmd) {
     while (*cmd == ' ' || *cmd == '\t') {
-        cmd+;
+        cmd++;
     }
 
     if (strcmp(cmd, "SCALE=F") == 0) {
