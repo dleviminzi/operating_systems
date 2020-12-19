@@ -290,7 +290,7 @@ int main(int argc, char* argv[]) {
     }
 
     SSL_library_init();
-    SS_load_error_strings();
+    SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
     new_cont = SSL_CTX_new(TLSv1_client_method());
