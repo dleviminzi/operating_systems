@@ -173,7 +173,7 @@ void handle_input(char *input) {
     if (ret > 0) {
         input[ret] = 0;
     }
-    fprintf(stderr, "INPUT = %s\n", input)
+    fprintf(stderr, "INPUT = %s\n", input);
     
     char *start = input;
 
