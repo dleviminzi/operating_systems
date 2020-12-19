@@ -121,7 +121,7 @@ void shtdwn() {
     sprintf(toPrint, "%.2d:%.2d:%.2d SHUTDOWN\n", Time->tm_hour, Time->tm_min, Time->tm_sec);
     prnt(toPrint, 0);
     if (!reporting) {
-        dprintf(logfd, "OFF\n");
+        dprintf(logFD, "OFF\n");
         dprintf(logFD, "%s\n", toPrint);
     }
 
