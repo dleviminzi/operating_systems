@@ -167,7 +167,6 @@ void command(char *cmd) {
 void handle_input(char *input) {
     int ret = SSL_read(ssl, input, 256);
     if (ret > 0) {
-        fprintf(stderr, "GOT BYTES");
         input[ret] = 0;
     }
     
@@ -181,6 +180,8 @@ void handle_input(char *input) {
         }
 
         *end = 0;
+
+        fprintf(stderr, "handling %s\n", start);
 
         command(start);
         start = &end[1];
