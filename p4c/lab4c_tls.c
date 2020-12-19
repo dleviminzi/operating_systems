@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
     ssl = SSL_new(new_cont);
 
     if (ssl == NULL || !SSL_set_fd(ssl, sock) || SSL_connect(ssl) != 1) {
-        fprintf("Failed to initialize SSL properly");
+        fprintf(stderr, "Failed to initialize SSL properly");
         exit(2);
     }
 
