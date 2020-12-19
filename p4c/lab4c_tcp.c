@@ -90,7 +90,7 @@ double calcTemp(int temp) {
 void reportTemp(float convTemp) {
     printTime();
     dprintf(sock, "%.1f\n", convTemp);
-    fprintf(stderr, "%.1f\n", convTemp);)
+    fprintf(stderr, "%.1f\n", convTemp);
     dprintf(logFD, "%.1f\n", convTemp);
 }
 
