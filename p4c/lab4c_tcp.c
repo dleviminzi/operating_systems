@@ -32,7 +32,7 @@ const int R0 = 100000;
 //int button;
 
 char scale;      /* temp in f or c */
-int logFD;            /* file descriptor of logfile */
+FILE *logFD;            /* file descriptor of logfile */
 int off;
 int reporting;
 int period;
