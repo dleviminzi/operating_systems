@@ -333,8 +333,8 @@ int main(int argc, char* argv[]) {
     input = (char *)malloc(1024 * sizeof(char));
     
     while(1) {
-        int ret = poll(&pIn, 1, 0);
-        if (ret) {
+        poll(&pIn, 1, 0);
+        if (pIn.revents & POLLIN) {
             handle_input(input);
         }
     }
