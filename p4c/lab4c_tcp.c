@@ -54,14 +54,14 @@ void prnt(char *toPrint, int serv) {
     dprintf(logFD, "%s\n", toPrint);
 }
 
-void printTime() {
+void printTime(float convTemp) {
     time_t raw;
     struct tm* Time;
     time(&raw);
     Time = localtime(&raw);
 
     char toPrint[160];
-    sprintf(toPrint, "%.2d:%.2d:%.2d ", Time->tm_hour, Time->tm_min, Time->tm_sec);
+    sprintf(toPrint, "%.2d:%.2d:%.2d %.1f", Time->tm_hour, Time->tm_min, Time->tm_sec, convTemp);
     prnt(toPrint, SERV);
 }
 
@@ -89,9 +89,6 @@ double calcTemp(int temp) {
 
 void reportTemp(float convTemp) {
     printTime();
-    dprintf(sock, "%.1f\n", convTemp);
-    fprintf(stderr, "%.1f\n", convTemp);
-    dprintf(logFD, "%.1f\n", convTemp);
 }
 
 /* thread function to gather temp and then wait */
