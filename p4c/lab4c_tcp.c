@@ -117,6 +117,9 @@ void shtdwn() {
     char toPrint[160];
     sprintf(toPrint, "%.2d:%.2d:%.2d SHUTDOWN\n", Time->tm_hour, Time->tm_min, Time->tm_sec);
     prnt(toPrint, 0);
+    if (!reporting) {
+        dprintf(logFD, "%s\n", toPrint);
+    }
 
     mraa_aio_close(tempSensor);
     mraa_gpio_close(button);

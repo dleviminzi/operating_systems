@@ -120,6 +120,9 @@ void shtdwn() {
     char toPrint[160];
     sprintf(toPrint, "%.2d:%.2d:%.2d SHUTDOWN\n", Time->tm_hour, Time->tm_min, Time->tm_sec);
     prnt(toPrint, 0);
+    if (!reporting) {
+        dprintf(logFD, "%s\n", toPrint);
+    }
 
     SSL_shutdown(ssl);
     SSL_free(ssl);
